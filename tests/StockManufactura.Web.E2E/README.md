@@ -35,3 +35,18 @@ Variables opcionales: `E2E_URL` (por defecto `http://localhost:5199/`) y `E2E_US
 
 El programa termina con código 0 si todos los controles pasan. Las capturas de las fallas y del menú de celular quedan
 en `bin/Debug/net10.0/capturas`.
+
+## Casos funcionales F1 a F33
+
+`dotnet run -- casos` ejecuta los casos de prueba funcionales del documento del proyecto sobre la base de demostración
+(`demo/StockManufactura-demo.db`), con el servidor iniciado con `Demo__Habilitada=true`. Al final restablece la base, así
+que conviene usar una copia. Algunos casos necesitan recursos adicionales, indicados con variables de entorno; si faltan,
+el caso se informa como omitido:
+
+| Variable | Casos | Contenido |
+|---|---|---|
+| `E2E_CORREO_DIR` | F19, F20 | Carpeta donde un servidor SMTP de prueba en `localhost:2525` guarda los mensajes. |
+| `E2E_NUBE_DIR` | F13, F14, F31 | Carpeta vacía que hace de carpeta sincronizada de la nube. |
+| `E2E_COPIAS_DIR` | F12 | Carpeta para las copias de seguridad de la prueba. |
+| `E2E_URL_SIN_RED` | F11 | Otro servidor iniciado con `HTTPS_PROXY=http://127.0.0.1:9` (sin acceso a Internet). |
+| `E2E_PRECIOS_USD` | F32 | Planilla con la fila `PIG-01` / `3` (código y precio en dólares). |

@@ -89,8 +89,12 @@
         StatusMessage = "Buscando cotización dólar blue...";
         try
         {
+            var conocidas = _historial.Select(x => x.Id).ToHashSet();
             var cotizacion = await Monetario.UpdateAutomaticAsync("dolar-hoy", Session.Actor);
-            StatusMessage = $"Dólar blue actualizado: $ {cotizacion.Valor.ToString("N2", Cultura)}";
+            // Sin conexión, el servicio devuelve la última cotización conocida en lugar de una nueva.
+            StatusMessage = conocidas.Contains(cotizacion.Id)
+                ? $"No se pudo obtener la cotización en línea (sin conexión con el servicio). Se mantiene la última conocida: $ {cotizacion.Valor.ToString("N2", Cultura)}."
+                : $"Dólar blue actualizado: $ {cotizacion.Valor.ToString("N2", Cultura)}";
         }
         catch (Exception ex)
         {

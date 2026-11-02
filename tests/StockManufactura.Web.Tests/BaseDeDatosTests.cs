@@ -36,7 +36,7 @@ public class BaseDeDatosTests
     }
 
     [Fact]
-    public async Task Restablecer_DejaSoloLosDatosInicialesYRegistraLaOperacion()
+    public async Task Restablecer_DejaElSistemaComoRecienInstaladoYRegistraLaOperacion()
     {
         using var sitio = new SitioWebFactory();
         await sitio.CrearUsuarioAsync("temporal", "Temporal123", "STOCK_VER");
@@ -48,6 +48,7 @@ public class BaseDeDatosTests
         var usuarios = await unitOfWork.Usuarios.ListAsync();
         var bitacora = await unitOfWork.AuditLogs.ListAsync();
         Assert.Equal(new[] { "Admin" }, usuarios.Select(u => u.Nombre));
+        Assert.DoesNotContain(usuarios, u => u.Nombre == "temporal");
         Assert.True(usuarios.Single().RequiereCambioPassword);
         Assert.Contains(bitacora, a => a.Accion == "ResetearBaseDatos" && a.Usuario == "admin@test.com");
     }

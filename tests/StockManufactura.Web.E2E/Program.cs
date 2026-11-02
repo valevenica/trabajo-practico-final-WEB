@@ -4,6 +4,11 @@ using Microsoft.Playwright;
 // ATENCIÓN: modifican datos (desactivan y reactivan registros, crean usuarios, restauran una copia). Usar SOLO con una
 // base de prueba. Ver README.md de esta carpeta.
 var B = (Environment.GetEnvironmentVariable("E2E_URL") ?? "http://localhost:5199/").TrimEnd('/') + "/";
+if (args.Length > 0 && args[0] == "casos")
+{
+    return await CasosFuncionales.EjecutarAsync(B);
+}
+
 var usuarioAdmin = Environment.GetEnvironmentVariable("E2E_USUARIO") ?? "Admin";
 var passwordAdmin = Environment.GetEnvironmentVariable("E2E_PASSWORD") ?? "Admin12345";
 var shots = Path.Combine(AppContext.BaseDirectory, "capturas");
@@ -236,8 +241,13 @@ await Check("cotización manual y prioritaria", async () =>
     await page.Locator(".form-grid input").Nth(1).FillAsync("Prueba e2e");
     await page.ClickAsync("text=Guardar manual"); await page.WaitForTimeoutAsync(800);
     if (!(await Status()).StartsWith("Cotización manual guardada")) throw new Exception(await Status());
-    var filas = page.Locator("tbody tr");
-    if (await filas.CountAsync() > 1) { await filas.Nth(1).ClickAsync(); await page.ClickAsync("text=★ Usar esta cotización"); await page.WaitForTimeoutAsync(800); }
+    // Se elige una cotización que no sea la activa (la activa tiene la estrella en la primera columna).
+    var inactivas = page.Locator("tbody tr").Filter(new() { Has = page.Locator("td:first-child:not(:has-text('★'))") });
+    if (await inactivas.CountAsync() > 0)
+    {
+        await inactivas.First.ClickAsync(); await page.ClickAsync("text=★ Usar esta cotización"); await page.WaitForTimeoutAsync(800);
+        if (!(await Status()).Contains("activa", StringComparison.OrdinalIgnoreCase) && !(await Status()).Contains("prioritaria", StringComparison.OrdinalIgnoreCase)) throw new Exception(await Status());
+    }
     await SinError();
 });
 

@@ -73,13 +73,13 @@ namespace StockManufactura.Infrastructure.Cloud
         {
             if (!settings.GoogleDriveHabilitado)
             {
-                return Task.FromResult(CloudSyncResult.NoEjecutada("La sincronizacion con la nube esta deshabilitada."));
+                return Task.FromResult(CloudSyncResult.NoEjecutada("La sincronización con la nube está deshabilitada."));
             }
 
             if (!TryResolveCloudFolder(settings, out var cloudFolder))
             {
                 return Task.FromResult(CloudSyncResult.NoEjecutada(
-                    "No se encontro la carpeta de la nube. Verifique que el cliente de sincronizacion este instalado y la ruta configurada sea correcta."));
+                    "No se encontró la carpeta de la nube. Verifique que el cliente de sincronización esté instalado y la ruta configurada sea correcta."));
             }
 
             var localFolder = settings.CarpetaLocal;
@@ -121,7 +121,7 @@ namespace StockManufactura.Infrastructure.Cloud
                     if (TryCopy(remote.RutaCompleta, Path.Combine(cloudFolder, preserved))
                         && TryCopy(local.RutaCompleta, Path.Combine(cloudFolder, local.NombreArchivo)))
                     {
-                        conflictos.Add($"{local.NombreArchivo} (la copia de la nube se conservo como {preserved})");
+                        conflictos.Add($"{local.NombreArchivo} (la copia de la nube se conservó como {preserved})");
                     }
                 }
             }
@@ -146,8 +146,8 @@ namespace StockManufactura.Infrastructure.Cloud
             }
 
             var mensaje = settings.SincronizacionBidireccional
-                ? $"Sincronizacion bidireccional completada: {subidos.Count} subida(s), {descargados.Count} descarga(s), {conflictos.Count} conflicto(s)."
-                : $"Sincronizacion de subida completada: {subidos.Count} subida(s), {conflictos.Count} conflicto(s).";
+                ? $"Sincronización bidireccional completada: {subidos.Count} subida(s), {descargados.Count} descarga(s), {conflictos.Count} conflicto(s)."
+                : $"Sincronización de subida completada: {subidos.Count} subida(s), {conflictos.Count} conflicto(s).";
 
             return Task.FromResult(new CloudSyncResult
             {

@@ -98,8 +98,9 @@
         <section class="card danger-zone">
             <h2>Restablecer base de datos</h2>
             <p class="muted small">Borra todos los datos del sistema (productos, insumos, proveedores, clientes, órdenes, historial de costos
-                y de precios, bitácora y copias registradas) y deja solo los roles y el usuario administrador base («Admin», contraseña
-                inicial Admin123, que deberá cambiarse al ingresar). Antes de borrar se genera una copia de seguridad.</p>
+                y de precios, bitácora y copias registradas) y deja el sistema como recién instalado: los roles, el usuario administrador
+                base («Admin», contraseña inicial Admin123, que deberá cambiarse al ingresar) y los datos de ejemplo iniciales. Antes de
+                borrar se genera una copia de seguridad.</p>
             <div class="inline-form">
                 <input placeholder="Escribí @DatabaseResetService.FraseConfirmacion para confirmar" @bind="_frase" @bind:event="oninput" />
                 <button class="btn btn-secondary danger" disabled="@(Ocupado || _frase.Trim() != DatabaseResetService.FraseConfirmacion)"
@@ -157,9 +158,8 @@
               + string.Join(", ", resultado.Conflictos)
             : null;
         await CargarAsync();
-        StatusMessage = resultado.Ejecutada
-            ? $"{resultado.Mensaje} {resultado.TotalSubidos} subida(s), {resultado.TotalDescargados} descarga(s), {resultado.TotalConflictos} conflicto(s)."
-            : resultado.Mensaje;
+        // El mensaje del servicio ya incluye los totales de subidas, descargas y conflictos.
+        StatusMessage = resultado.Mensaje;
     }
 
     private Task SubirCopiaAsync(InputFileChangeEventArgs e) => EjecutarAsync(async () =>
