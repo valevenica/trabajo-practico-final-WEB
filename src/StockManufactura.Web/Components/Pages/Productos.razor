@@ -311,7 +311,7 @@
             if (_seleccionado is null) { StatusMessage = "Debe seleccionar un producto."; return; }
             if (existente is not null && existente.Id != _seleccionado.Id) { StatusMessage = "Ya existe un producto con ese código."; return; }
 
-            // Se edita la instancia seguida por el contexto, como en escritorio (el listado se carga sin seguimiento).
+            // Se edita la instancia seguida por el contexto (el listado se carga sin seguimiento).
             producto = existente ?? await UnitOfWork.Productos.GetByIdAsync(_seleccionado.Id)
                 ?? throw new InvalidOperationException("El producto ya no existe; recargue el listado.");
             _form.CopyTo(producto, codigo, CostoCalculado);

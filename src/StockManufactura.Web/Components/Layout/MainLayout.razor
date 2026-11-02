@@ -55,7 +55,7 @@
 </div>
 
 @code {
-    // Mismos grupos y orden que el menú lateral de escritorio; cada opción se muestra solo si el rol tiene permiso.
+    // Menú agrupado por área; cada opción se muestra solo si el rol tiene permiso.
     private static readonly (string Titulo, (string Ruta, string Texto, string? Modulo)[] Items)[] Menu =
     {
         ("Dashboard", new (string, string, string?)[]

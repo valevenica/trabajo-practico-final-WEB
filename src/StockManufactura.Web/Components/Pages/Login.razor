@@ -106,7 +106,7 @@
         Navigation.NavigateTo(EsRutaLocal(destino) ? destino! : "", forceLoad: true);
     }
 
-    // Mismo registro que el ingreso de escritorio, para que la bitácora muestre los accesos de ambas versiones.
+    // Cada ingreso, exitoso o fallido, queda en la bitácora.
     private Task RegistrarAuditoriaAsync(string accion, string descripcion, Guid? usuarioId)
     {
         return AuditLogService.RegisterAsync(new AuditLog

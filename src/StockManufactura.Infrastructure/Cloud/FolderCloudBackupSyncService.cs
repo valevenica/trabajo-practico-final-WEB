@@ -13,7 +13,7 @@ namespace StockManufactura.Infrastructure.Cloud
 {
     /// <summary>
     /// Sincronizacion bidireccional de copias de seguridad contra un servicio en la nube,
-    /// usando como punto de intercambio la carpeta que el cliente de escritorio del proveedor
+    /// usando como punto de intercambio la carpeta que el cliente de sincronización del proveedor
     /// (Google Drive, OneDrive) replica automaticamente contra el servidor remoto.
     ///
     /// Este enfoque mantiene el sistema operativo sin conexion: si la carpeta no esta disponible

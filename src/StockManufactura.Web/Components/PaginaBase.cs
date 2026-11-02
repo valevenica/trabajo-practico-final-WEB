@@ -13,7 +13,7 @@ namespace StockManufactura.Web.Components
 
     /// <summary>
     /// Base de las pantallas de gestión. Cada página resuelve sus servicios (y por lo tanto su DbContext) desde un ámbito
-    /// propio que se libera al salir de ella, igual que el contexto por pantalla de la versión de escritorio.
+    /// propio que se libera al salir de ella: un contexto de datos por pantalla.
     /// </summary>
     public abstract class PaginaBase : OwningComponentBase
     {

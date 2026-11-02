@@ -201,7 +201,7 @@
 
     private async Task RecargarAsync()
     {
-        // Los servicios (electricidad, alquiler) se gestionan como insumos especiales, igual que en escritorio.
+        // Los servicios (electricidad, alquiler) se gestionan como insumos especiales.
         _insumos = (await Pricing.GetAllResourcesAsync()).Where(x => !x.EsServicio).ToList();
         _proveedores = (await UnitOfWork.Proveedores.ListAsync()).Where(x => x.Activo).OrderBy(x => x.Nombre).ToList();
         _cotizacion = (await Servicio<IMonetaryConfigurationService>().GetCurrentStateAsync()).CurrentRate;
@@ -352,7 +352,7 @@
         decimal? nuevoPrecio = null;
         if (target.EsPrioritario)
         {
-            // Si era el prioritario, el primero restante pasa a serlo, como en escritorio.
+            // Si era el prioritario, el primero restante pasa a serlo.
             var siguiente = items.FirstOrDefault(x => x.Id != target.Id);
             if (siguiente is not null)
             {

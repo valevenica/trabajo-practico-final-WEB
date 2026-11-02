@@ -71,7 +71,7 @@ await Check("ingreso: contraseña incorrecta y correcta", async () =>
 });
 
 // ---------------------------------------------------------------- Menú y módulos
-await Check("menú agrupado igual que escritorio", async () =>
+await Check("menú agrupado por área", async () =>
 {
     var grupos = (await page.Locator(".nav-group").AllInnerTextsAsync()).Select(x => x.Trim().ToUpperInvariant()).ToList();
     var esperado = new[] { "DASHBOARD", "STOCK", "PROVEEDORES", "CLIENTES", "PRODUCCIÓN", "FINANZAS", "ADMINISTRACIÓN" };

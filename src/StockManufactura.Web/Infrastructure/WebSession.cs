@@ -26,7 +26,7 @@ namespace StockManufactura.Web.Infrastructure
 
         public Usuario? Usuario => _usuario;
 
-        /// <summary>Identificación usada en la auditoría, igual que en escritorio (el correo del usuario).</summary>
+        /// <summary>Identificación usada en la auditoría (el correo del usuario).</summary>
         public string Actor => _usuario?.Email ?? "web-user";
 
         public async Task<Usuario?> GetUsuarioAsync()
@@ -52,7 +52,7 @@ namespace StockManufactura.Web.Infrastructure
 
         public bool TienePermiso(string permiso)
         {
-            // Igual que en escritorio: solo el rol decide los permisos.
+            // Solo el rol decide los permisos.
             var roleName = _usuario?.Rol?.Nombre?.Trim();
             if (string.Equals(roleName, DatabaseSeeder.AdminRoleName, StringComparison.OrdinalIgnoreCase))
             {

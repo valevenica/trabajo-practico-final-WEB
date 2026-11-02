@@ -1,7 +1,7 @@
 namespace StockManufactura.Web.Infrastructure
 {
     /// <summary>
-    /// Mismas reglas de ingreso por módulo que la versión de escritorio: basta con uno de los permisos listados; los
+    /// Reglas de ingreso por módulo: basta con uno de los permisos listados; los
     /// módulos sin entrada son de acceso libre para cualquier usuario autenticado.
     /// </summary>
     public static class ModuleAccess

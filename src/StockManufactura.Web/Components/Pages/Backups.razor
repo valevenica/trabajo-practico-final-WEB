@@ -28,8 +28,8 @@
                     }
 
                     <h3>Sincronización con la nube</h3>
-                    <p class="muted small">Las copias se intercambian con la carpeta que el cliente de escritorio del proveedor (Google Drive, OneDrive)
-                        replica contra el servicio remoto. Con la sincronización bidireccional, además de subir las copias de este equipo se
+                    <p class="muted small">Las copias se intercambian con una carpeta sincronizada por el servicio de almacenamiento en la nube
+                        (Google Drive, OneDrive) en el equipo donde corre el servidor. Con la sincronización bidireccional, además de subir las copias de este equipo se
                         descargan las que otros equipos hayan subido.</p>
                     <div class="form-grid">
                         <div><label>Carpeta de la nube</label><input @bind="_config.CarpetaNube" /></div>
@@ -48,8 +48,8 @@
 
                 <section class="card">
                     <h2>Restaurar una copia</h2>
-                    <p class="muted small">Reemplaza todos los datos actuales por los de la copia elegida, para todos los usuarios de la web y de
-                        escritorio que usen esta base. Antes de restaurar se genera una copia de seguridad del estado actual.</p>
+                    <p class="muted small">Reemplaza todos los datos actuales por los de la copia elegida, para todos los usuarios del sistema.
+                        Antes de restaurar se genera una copia de seguridad del estado actual.</p>
                     <label>Subir un archivo de copia (.zip)</label>
                     <InputFile OnChange="SubirCopiaAsync" accept=".zip" disabled="@Ocupado" />
                     <p class="muted small">O elegí «Restaurar» en una copia del historial.</p>
@@ -94,6 +94,18 @@
                 </table>
             </div>
         </div>
+
+        <section class="card danger-zone">
+            <h2>Restablecer base de datos</h2>
+            <p class="muted small">Borra todos los datos del sistema (productos, insumos, proveedores, clientes, órdenes, historial de costos
+                y de precios, bitácora y copias registradas) y deja solo los roles y el usuario administrador base («Admin», contraseña
+                inicial Admin123, que deberá cambiarse al ingresar). Antes de borrar se genera una copia de seguridad.</p>
+            <div class="inline-form">
+                <input placeholder="Escribí @DatabaseResetService.FraseConfirmacion para confirmar" @bind="_frase" @bind:event="oninput" />
+                <button class="btn btn-secondary danger" disabled="@(Ocupado || _frase.Trim() != DatabaseResetService.FraseConfirmacion)"
+                        @onclick="() => EjecutarAsync(RestablecerAsync)">Restablecer base de datos</button>
+            </div>
+        </section>
     </ChildContent>
 </PaginaMarco>
 
@@ -105,6 +117,7 @@
     private BackupSettings? _config;
     private IReadOnlyList<BackupRecord> _registros = Array.Empty<BackupRecord>();
     private string? _alerta;
+    private string _frase = string.Empty;
 
     private IBackupService Copias => Servicio<IBackupService>();
 
@@ -184,6 +197,32 @@
         await Copias.RestoreBackupAsync(ruta, Session.Actor);
         await CargarAsync();
         StatusMessage = $"Restauración completada desde «{nombre}». La copia previa quedó en {Path.GetFileName(previa.RutaArchivo)}.";
+    }
+
+    private async Task RestablecerAsync()
+    {
+        if (!string.Equals(_frase.Trim(), DatabaseResetService.FraseConfirmacion, StringComparison.Ordinal))
+        {
+            StatusMessage = $"Escribí exactamente «{DatabaseResetService.FraseConfirmacion}» para confirmar.";
+            return;
+        }
+
+        if (!await ConfirmarAsync("Se van a borrar TODOS los datos del sistema en forma irreversible. Antes se genera una copia de seguridad. ¿Continuar?"))
+        {
+            StatusMessage = "Restablecimiento cancelado.";
+            return;
+        }
+
+        var previa = await Copias.CreateManualBackupAsync(Session.Actor);
+        if (!previa.Exitoso)
+        {
+            StatusMessage = $"No se restableció la base: falló la copia previa ({previa.Mensaje}).";
+            return;
+        }
+
+        Servicio<DatabaseResetService>().Restablecer(Session.Actor);
+        // El usuario actual ya no existe en la base nueva: se vuelve al ingreso.
+        Navigation.NavigateTo("login", forceLoad: true);
     }
 
     private static string Tamanio(long bytes) => bytes switch

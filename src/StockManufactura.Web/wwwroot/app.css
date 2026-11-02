@@ -1,4 +1,4 @@
-/* Paleta de la versión de escritorio (App.xaml). */
+/* Paleta institucional del sistema. */
 :root {
     --primary: #7A1C52;
     --primary-hover: #9B2469;
@@ -85,6 +85,7 @@ h1:focus { outline: none; }
     box-shadow: 0 2px 8px rgba(110, 91, 50, 0.08);
 }
 .card.narrow { max-width: 460px; }
+.card.danger-zone { border-top-color: var(--danger); }
 .card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .card-header h2 { margin: 0; }
 

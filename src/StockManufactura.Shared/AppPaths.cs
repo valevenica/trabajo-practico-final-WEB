@@ -7,8 +7,9 @@ namespace StockManufactura.Shared
     {
         public const string AppFolderName = "StockManufactura";
 
+        // Datos del sistema web: Documentos\StockManufactura\Web.
         public static string DocumentsRoot =>
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), AppFolderName);
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), AppFolderName, "Web");
 
         public static string DataDirectory => Path.Combine(DocumentsRoot, "Data");
         public static string LogsDirectory => Path.Combine(DocumentsRoot, "Logs");

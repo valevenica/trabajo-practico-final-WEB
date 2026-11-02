@@ -11,7 +11,7 @@ namespace StockManufactura.Web.Tests;
 
 /// <summary>
 /// La sesión web decide qué opciones del menú ve cada usuario y si puede entrar a cada pantalla, con las mismas reglas
-/// que AuthSession en escritorio.
+/// que el resto del sistema.
 /// </summary>
 public class WebSessionTests
 {

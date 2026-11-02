@@ -3,7 +3,7 @@ using StockManufactura.Application.Interfaces;
 namespace StockManufactura.Web.Infrastructure
 {
     /// <summary>
-    /// Equivalente web del temporizador de escritorio: cada cinco minutos pregunta al servicio de copias si corresponde
+    /// Copia automática: cada cinco minutos pregunta al servicio de copias si corresponde
     /// generar la automática. El servicio decide según la configuración (activada o no) y el intervalo desde la última.
     /// </summary>
     public sealed class AutomaticBackupService : BackgroundService

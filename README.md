@@ -1,7 +1,10 @@
-# StockManufactura (versión web)
+# Integra Manufacturing — StockManufactura
 
-Copia del sistema con la interfaz de escritorio (WPF) reemplazada por una aplicación web **Blazor Server**
-(`src/StockManufactura.Web`). Las capas Domain, Application, Infrastructure y Shared son las mismas que en escritorio.
+Sistema web de gestión de inventario, producción y costos de fabricación para pequeñas y medianas empresas
+manufactureras. Proyecto Final de Ingeniería en Sistemas de Información (UTN Facultad Regional Rosario).
+
+Aplicación **ASP.NET Core Blazor Server** (`src/StockManufactura.Web`) con arquitectura limpia: Domain, Application,
+Infrastructure y Shared. Persistencia en **SQLite** mediante Entity Framework Core.
 
 ## Ejecutar
 
@@ -10,18 +13,19 @@ dotnet run --project src/StockManufactura.Web
 ```
 
 Luego abrir la URL que indica la consola. Al iniciar se aplican las migraciones y se crea el usuario administrador
-(`Admin` / `Admin123`, se pide cambiarla en el primer ingreso), igual que en escritorio.
+(`Admin` / `Admin123`; se pide cambiarla en el primer ingreso).
 
 ### Base de datos
 
-Por defecto usa la misma base SQLite que la versión de escritorio (`Documentos\StockManufactura\Data\StockManufactura.db`),
-así ambas trabajan sobre los mismos datos. Para usar otra, completar `ConnectionStrings:StockManufactura` en
-`appsettings.json`, por ejemplo `Data Source=C:\datos\stock-web.db`.
+SQLite, en un único archivo: por defecto `Documentos\StockManufactura\Web\Data\StockManufactura.db` (la carpeta
+`Documentos\StockManufactura\Web` guarda también las copias de seguridad y la configuración del correo). Para usar otro
+archivo, completar `ConnectionStrings:StockManufactura` en `appsettings.json` o en la variable de entorno
+`ConnectionStrings__StockManufactura`, por ejemplo `Data Source=C:\datos\stock.db`. Las copias de seguridad, la
+restauración y el restablecimiento operan siempre sobre el archivo de esa conexión.
 
-### Módulos incluidos
+### Módulos
 
-Todas las pantallas de escritorio, con el mismo menú agrupado (Dashboard, Stock, Proveedores, Clientes, Producción,
-Finanzas y Administración) y los mismos permisos por rol:
+Menú agrupado (Dashboard, Stock, Proveedores, Clientes, Producción, Finanzas y Administración) con permisos por rol:
 
 - Ingreso con opción de mostrar la contraseña, «¿Olvidó su contraseña?» (código por correo) y registro de cada intento
   en la bitácora. «Mi cuenta» para editar los datos propios y cambiar la contraseña.
@@ -32,16 +36,15 @@ Finanzas y Administración) y los mismos permisos por rol:
 - Proveedores, clientes y órdenes de producción.
 - Configuración monetaria (dólar blue automático, carga manual e historial).
 - Usuarios, roles y permisos, y cuenta de correo para la recuperación de contraseñas.
-- Copias de seguridad (manuales, automáticas cada el intervalo configurado, descarga, restauración y sincronización con
-  la nube) y bitácora de auditoría con exportación a CSV.
+- Copias de seguridad (manuales, automáticas, descarga, restauración y sincronización con la nube), restablecimiento
+  de la base de datos y bitácora de auditoría con exportación a CSV.
+- Ayuda en línea: el manual de usuario (`wwwroot/ayuda/manual-de-usuario.pdf`), enlazado desde el menú y el ingreso.
 
 Productos e insumos no se eliminan: se desactivan y se pueden reactivar desde «Mostrar inactivos».
 
-Lo único que queda solo en escritorio es «Restablecer base de datos», porque reinicia la aplicación.
-
 ### Demo publicada (Render, plan gratuito)
 
-La rama `feat/version-web` incluye todo lo necesario para publicar una demo con un link:
+El repositorio incluye todo lo necesario para publicar una demo con un link:
 
 - `Dockerfile`: compila la web y copia `demo/StockManufactura-demo.db` (datos ficticios de un taller de velas) dentro de la imagen.
   Cada vez que el servicio se reinicia, los datos vuelven a ese estado inicial.
@@ -58,13 +61,13 @@ minuto. La recuperación de contraseña por correo no está configurada en la de
 
 | Proyecto | Qué cubre | Cómo se ejecuta |
 |---|---|---|
-| `tests/StockManufactura.UnitTests` | Servicios de aplicación compartidos con escritorio (75 pruebas). | `dotnet test` |
-| `tests/StockManufactura.Web.Tests` | Lógica propia de la web (períodos, permisos por módulo, sesión, movimiento de stock de pedidos) y pruebas de integración HTTP sobre el sitio completo en memoria: ingreso, cambio de contraseña obligatorio, redirección segura, menú por rol, descarga de copias (401/403/404) y cierre de sesión, más el modo demostración (62 pruebas). | `dotnet test` |
+| `tests/StockManufactura.UnitTests` | Servicios de las capas de aplicación e infraestructura (75 pruebas). | `dotnet test` |
+| `tests/StockManufactura.Web.Tests` | Lógica propia de la web (períodos, permisos por módulo, sesión, movimiento de stock de pedidos) y pruebas de integración HTTP sobre el sitio completo en memoria: ingreso, cambio de contraseña obligatorio, redirección segura, menú por rol, descarga de copias (401/403/404) cierre de sesión, copias sobre la base configurada, restablecimiento de la base y modo demostración (66 pruebas). | `dotnet test` |
 | `tests/StockManufactura.Web.E2E` | 40 controles en Chrome contra un servidor levantado, incluida la vista de celular. Modifica datos: usar solo con una base de prueba. | Ver su `README.md` |
 
 ---
 
-Sistema para PyME manufacturera con arquitectura limpia, MVVM en Desktop y persistencia SQLite.
+Notas de diseño de los módulos.
 
 ## Pruebas funcionales guiadas
 
@@ -182,9 +185,9 @@ La informacion de cotizaciones e historiales forma parte del backup SQLite porqu
 Se mantiene:
 
 - Clean Architecture
-- MVVM
+- Componentes Blazor sin lógica de negocio (la lógica vive en Application)
 - Repository Pattern
 - Unit Of Work
 - SOLID
 
-Toda la logica de negocio se implementa en Application. Las Views no contienen logica de negocio.
+Toda la lógica de negocio se implementa en Application. Las páginas Blazor no contienen lógica de negocio.

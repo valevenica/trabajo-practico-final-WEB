@@ -1,3 +1,4 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using StockManufactura.Application.Email;
 using StockManufactura.Application.Interfaces;
@@ -17,15 +18,15 @@ namespace StockManufactura.Web.Infrastructure
     internal static class WebServiceCollectionExtensions
     {
         /// <summary>
-        /// Mismo registro que la versión de escritorio. El DbContext sigue siendo transitorio: cada página resuelve sus
-        /// servicios desde su propio ámbito (<see cref="Components.PaginaBase"/>), equivalente al contexto por pantalla del WPF.
+        /// Registro de repositorios y servicios. El DbContext es transitorio: cada página resuelve sus servicios desde su
+        /// propio ámbito (<see cref="Components.PaginaBase"/>), de modo que una pantalla comparte un único contexto de datos.
         /// </summary>
         public static IServiceCollection AddStockManufacturaWeb(this IServiceCollection services, IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("StockManufactura");
             if (string.IsNullOrWhiteSpace(connectionString))
             {
-                // Por defecto se usa la misma base que la versión de escritorio, para trabajar sobre los mismos datos.
+                // Por defecto, Documentos\StockManufactura\Web\Data (ver AppPaths).
                 Directory.CreateDirectory(AppPaths.DataDirectory);
                 connectionString = $"Data Source={AppPaths.DatabaseFilePath}";
             }
@@ -59,7 +60,10 @@ namespace StockManufactura.Web.Infrastructure
 
             services.AddTransient<IAuditLogService, AuditLogService>();
             services.AddTransient<IBackupService, BackupService>();
-            services.AddSingleton<IDatabaseSnapshotService, SqliteDatabaseSnapshotService>();
+            // Las copias y la restauración operan sobre el mismo archivo que usa la conexión, no sobre la ruta por defecto.
+            var databasePath = Path.GetFullPath(new SqliteConnectionStringBuilder(connectionString).DataSource);
+            services.AddSingleton<IDatabaseSnapshotService>(new SqliteDatabaseSnapshotService(databasePath));
+            services.AddSingleton(sp => new DatabaseResetService(databasePath, configuration, sp));
             services.AddTransient<IAuthenticationService, AuthenticationService>();
             services.AddTransient<IProductCostService, ProductCostService>();
             services.AddTransient<ICostReportService, CostReportService>();

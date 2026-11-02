@@ -4,7 +4,7 @@ services:
     name: stockmanufactura-demo
     runtime: docker
     plan: free
-    branch: feat/version-web
+    branch: main
     dockerfilePath: ./Dockerfile
     healthCheckPath: /login
     autoDeploy: true

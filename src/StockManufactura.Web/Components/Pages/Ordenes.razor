@@ -186,7 +186,7 @@
         await RegistrarAuditoriaAsync("Crear", orden, "Alta de orden de producción.");
 
         await CargarAsync();
-        // Queda seleccionada, como en escritorio, para poder avanzarla de estado enseguida.
+        // Queda seleccionada para poder avanzarla de estado enseguida.
         Seleccionar(_ordenes.First(x => x.Id == orden.Id));
         StatusMessage = await AvisoStockAsync(codigo, producto.Id);
     }
