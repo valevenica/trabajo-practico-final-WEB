@@ -317,7 +317,7 @@ html.menu-oculto .content { padding-left: 64px; }
     .nav-group { padding-top: 8px; }
     .user-box { margin-top: 0; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; }
     .content { padding: 16px; }
-    /* En celular el menú ya se pliega con «☰ Menú»: no se usa el ocultamiento de escritorio. */
+    /* En celular el menú ya se pliega con «☰ Menú»: no se usa el ocultamiento para pantallas grandes. */
     .menu-ocultar-btn { display: none; }
     html.menu-oculto .sidebar { display: flex; }
     html.menu-oculto .menu-mostrar-btn { display: none; }
