@@ -45,6 +45,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 var app = builder.Build();
 
+RegistroSerilog.Configurar(app.Services.GetRequiredService<ILoggerFactory>());
 app.Services.InitializeDatabase();
 if (DemoSetup.Habilitada(app.Configuration))
 {
