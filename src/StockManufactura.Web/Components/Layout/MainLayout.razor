@@ -12,6 +12,7 @@
             @if (Session.Usuario is not null)
             {
                 <label for="nav-toggle" class="nav-toggle-btn">☰ Menú</label>
+                <button type="button" class="menu-ocultar-btn" data-menu="ocultar" title="Ocultar menú" aria-label="Ocultar menú">«</button>
             }
         </div>
 
@@ -42,6 +43,11 @@
             </div>
         }
     </aside>
+
+    @if (Session.Usuario is not null)
+    {
+        <button type="button" class="menu-mostrar-btn" data-menu="mostrar" title="Mostrar menú" aria-label="Mostrar menú">☰</button>
+    }
 
     <main class="content">
         @Body

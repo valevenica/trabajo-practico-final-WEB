@@ -27,4 +27,28 @@ document.addEventListener("click", function (e) {
         const toggle = document.getElementById("nav-toggle");
         if (toggle) { toggle.checked = false; }
     }
+
+    // En pantalla grande, ocultar o mostrar el menú lateral; la elección se recuerda en este navegador.
+    const boton = e.target.closest("[data-menu]");
+    if (boton) {
+        const ocultar = boton.dataset.menu === "ocultar";
+        try { localStorage.setItem("menuOculto", ocultar ? "1" : "0"); } catch { }
+        aplicarMenu(ocultar);
+    }
+});
+
+function aplicarMenu(ocultar) {
+    document.documentElement.classList.toggle("menu-oculto", ocultar);
+}
+
+function restaurarMenu() {
+    let oculto = false;
+    try { oculto = localStorage.getItem("menuOculto") === "1"; } catch { }
+    aplicarMenu(oculto);
+}
+
+restaurarMenu();
+document.addEventListener("DOMContentLoaded", function () {
+    // La navegación mejorada de Blazor puede reemplazar atributos del documento: se vuelve a aplicar tras cada página.
+    if (window.Blazor) { Blazor.addEventListener("enhancedload", restaurarMenu); }
 });

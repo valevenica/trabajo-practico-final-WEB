@@ -10,7 +10,8 @@
     <div class="card">
         <p class="muted">Elegí el proveedor y un archivo Excel (.xlsx) con 2 columnas: <strong>Código de proveedor</strong> y
             <strong>Precio</strong> (la primera fila se toma como encabezado y se ignora). Solo se actualizan los insumos que tengan
-            ese código cargado en «Proveedores del insumo».</p>
+            ese código cargado en «Proveedores del insumo». Los códigos que no se encuentren se pueden vincular a un insumo
+            existente o dar de alta como insumo nuevo desde la vista previa.</p>
         <div class="form-grid">
             <div>
                 <label>Proveedor</label>
@@ -42,7 +43,7 @@
             </div>
             <div class="table-wrap">
                 <table class="table">
-                    <thead><tr><th class="num">Fila</th><th>Código proveedor</th><th>Insumo</th><th class="num">Precio actual</th><th class="num">Precio nuevo</th><th>Estado</th><th>Mensaje</th></tr></thead>
+                    <thead><tr><th class="num">Fila</th><th>Código proveedor</th><th>Insumo</th><th class="num">Precio actual</th><th class="num">Precio nuevo</th><th>Estado</th><th>Mensaje</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var f in _filas)
                         {
@@ -54,10 +55,65 @@
                                 <td class="num">@(f.Precio?.ToString("N2", Cultura) ?? f.PrecioTexto)</td>
                                 <td>@EstadoTexto(f.Status)</td>
                                 <td>@f.Mensaje</td>
+                                <td class="row-actions">
+                                    @if (f.Status == ResourcePriceImportRowStatus.NoEncontrado)
+                                    {
+                                        <button class="btn btn-link" disabled="@Ocupado" @onclick="() => EjecutarAsync(() => AbrirAltaAsync(f))">Agregar</button>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
                 </table>
+            </div>
+        </div>
+    }
+
+    @if (_alta is not null)
+    {
+        <div class="card">
+            <div class="card-header">
+                <h2>Agregar código «@_alta.CodigoProveedor» de @NombreProveedor</h2>
+                <button class="btn btn-link" @onclick="() => _alta = null">Cancelar</button>
+            </div>
+            <div class="radio-row">
+                <label class="check"><input type="radio" name="modo-alta" checked="@(!_alta.CrearNuevo)" @onchange="() => _alta.CrearNuevo = false" /> Vincular a un insumo existente</label>
+                <label class="check"><input type="radio" name="modo-alta" checked="@_alta.CrearNuevo" @onchange="() => _alta.CrearNuevo = true" /> Crear insumo nuevo</label>
+            </div>
+            <div class="form-grid">
+                @if (_alta.CrearNuevo)
+                {
+                    <div><label>Código propio</label><input @bind="_alta.Codigo" /></div>
+                    <div><label>Nombre</label><input @bind="_alta.Nombre" /></div>
+                    <div><label>Categoría</label><input @bind="_alta.Categoria" /></div>
+                    <div><label>Unidad de medida</label><input @bind="_alta.UnidadMedida" /></div>
+                    <div>
+                        <label>Moneda</label>
+                        <div class="radio-row">
+                            <label class="check"><input type="radio" name="moneda-alta" checked="@(_alta.Moneda == Moneda.ARS)" @onchange="() => _alta.Moneda = Moneda.ARS" /> $ARS</label>
+                            <label class="check"><input type="radio" name="moneda-alta" checked="@(_alta.Moneda == Moneda.USD)" @onchange="() => _alta.Moneda = Moneda.USD" /> USD</label>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="span-2">
+                        <label>Insumo</label>
+                        <select @bind="_alta.RecursoId">
+                            <option value="">Seleccioná un insumo…</option>
+                            @foreach (var r in _insumosSinEsteProveedor)
+                            {
+                                <option value="@r.Id">@r.Nombre (@r.Codigo)</option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div><label>Precio del proveedor</label><input type="number" step="0.01" min="0" @bind="_alta.Precio" /></div>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(GuardarAltaAsync)">
+                    @(_alta.CrearNuevo ? "Crear insumo y vincular" : "Vincular código")
+                </button>
             </div>
         </div>
     }
@@ -74,8 +130,14 @@
     private byte[]? _archivo;
     private string? _archivoNombre;
     private IReadOnlyList<ResourcePriceImportRow> _filas = Array.Empty<ResourcePriceImportRow>();
+    private AltaForm? _alta;
+    private List<Recurso> _insumosSinEsteProveedor = new();
 
     private IResourcePriceImportService Importacion => Servicio<IResourcePriceImportService>();
+    private IUnitOfWork UnitOfWork => Servicio<IUnitOfWork>();
+    private IResourcePricingService Pricing => Servicio<IResourcePricingService>();
+
+    private string NombreProveedor => _proveedores.FirstOrDefault(p => p.Id == _proveedorId)?.Nombre ?? "el proveedor";
 
     private int CantidadOk => _filas.Count(x => x.Status == ResourcePriceImportRowStatus.Ok);
 
@@ -89,6 +151,7 @@
     {
         _proveedorId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
         _filas = Array.Empty<ResourcePriceImportRow>();
+        _alta = null;
         // Si ya había un archivo elegido se vuelve a leer contra el nuevo proveedor.
         return _proveedorId is not null && _archivo is not null ? EjecutarAsync(ParsearAsync) : Task.CompletedTask;
     }
@@ -139,6 +202,105 @@
         StatusMessage = $"Importación completada: {resultado.Actualizados} insumo(s) actualizados, {resultado.Omitidos} omitido(s).";
     }
 
+    private async Task AbrirAltaAsync(ResourcePriceImportRow fila)
+    {
+        if (_proveedorId is null) { return; }
+
+        // Solo se ofrecen los insumos que todavía no tienen cargado a este proveedor.
+        var insumos = (await Pricing.GetAllResourcesAsync()).Where(r => r.Activo && !r.EsServicio).OrderBy(r => r.Nombre).ToList();
+        _insumosSinEsteProveedor = new List<Recurso>();
+        foreach (var r in insumos)
+        {
+            if (!(await UnitOfWork.RecursoProveedores.ListByRecursoIdAsync(r.Id)).Any(x => x.ProveedorId == _proveedorId))
+            {
+                _insumosSinEsteProveedor.Add(r);
+            }
+        }
+
+        _alta = new AltaForm
+        {
+            CodigoProveedor = fila.CodigoProveedor,
+            Codigo = fila.CodigoProveedor,
+            Precio = fila.Precio ?? 0
+        };
+        StatusMessage = string.Empty;
+    }
+
+    private async Task GuardarAltaAsync()
+    {
+        if (_alta is null || _proveedorId is null) { return; }
+        if (_alta.Precio < 0) { StatusMessage = "Precio inválido."; return; }
+
+        Recurso recurso;
+        if (_alta.CrearNuevo)
+        {
+            if (string.IsNullOrWhiteSpace(_alta.Codigo) || string.IsNullOrWhiteSpace(_alta.Nombre)) { StatusMessage = "Código y nombre son requeridos."; return; }
+
+            recurso = await Pricing.UpsertResourceAsync(new ResourceUpsertRequest
+            {
+                Codigo = _alta.Codigo.Trim(),
+                Nombre = _alta.Nombre.Trim(),
+                Categoria = _alta.Categoria.Trim(),
+                UnidadMedida = _alta.UnidadMedida.Trim(),
+                Precio = _alta.Precio,
+                Moneda = _alta.Moneda,
+                ProveedorHabitualId = _proveedorId,
+                MotivoCambio = "Alta desde carga masiva de precios",
+                Activo = true,
+                Usuario = Session.Actor
+            });
+        }
+        else
+        {
+            var elegido = Guid.TryParse(_alta.RecursoId, out var id) ? _insumosSinEsteProveedor.FirstOrDefault(r => r.Id == id) : null;
+            if (elegido is null) { StatusMessage = "Seleccioná un insumo."; return; }
+            recurso = elegido;
+        }
+
+        // Si el insumo no tenía proveedores, este pasa a ser el prioritario y define su precio.
+        var esPrimero = !(await UnitOfWork.RecursoProveedores.ListByRecursoIdAsync(recurso.Id)).Any();
+        await UnitOfWork.RecursoProveedores.AddAsync(new RecursoProveedor
+        {
+            RecursoId = recurso.Id,
+            ProveedorId = _proveedorId.Value,
+            Precio = _alta.Precio,
+            EsPrioritario = esPrimero,
+            CodigoProveedor = _alta.CodigoProveedor
+        });
+        await UnitOfWork.SaveChangesAsync();
+
+        if (esPrimero && !_alta.CrearNuevo && recurso.Precio != _alta.Precio)
+        {
+            await Pricing.UpsertResourceAsync(new ResourceUpsertRequest
+            {
+                ResourceId = recurso.Id,
+                Codigo = recurso.Codigo,
+                Nombre = recurso.Nombre,
+                Descripcion = recurso.Descripcion,
+                Categoria = recurso.Categoria,
+                UnidadMedida = recurso.UnidadMedida,
+                EsServicio = recurso.EsServicio,
+                StockActual = recurso.StockActual,
+                StockMinimo = recurso.StockMinimo,
+                Precio = _alta.Precio,
+                Moneda = recurso.Moneda,
+                ProveedorHabitualId = recurso.ProveedorHabitualId,
+                MotivoCambio = "Precio de proveedor prioritario actualizado",
+                Observaciones = recurso.Observaciones,
+                Activo = recurso.Activo,
+                Usuario = Session.Actor
+            });
+        }
+
+        var codigo = _alta.CodigoProveedor;
+        var creado = _alta.CrearNuevo;
+        _alta = null;
+        await ParsearAsync();
+        StatusMessage = creado
+            ? $"Insumo «{recurso.Nombre}» creado y vinculado al código {codigo}."
+            : $"Código {codigo} vinculado a «{recurso.Nombre}».";
+    }
+
     private static string EstadoTexto(ResourcePriceImportRowStatus estado) => estado switch
     {
         ResourcePriceImportRowStatus.Ok => "Listo",
@@ -147,4 +309,17 @@
         ResourcePriceImportRowStatus.PrecioInvalido => "Precio inválido",
         _ => estado.ToString()
     };
+
+    private sealed class AltaForm
+    {
+        public string CodigoProveedor { get; set; } = string.Empty;
+        public bool CrearNuevo { get; set; }
+        public string RecursoId { get; set; } = string.Empty;
+        public string Codigo { get; set; } = string.Empty;
+        public string Nombre { get; set; } = string.Empty;
+        public string Categoria { get; set; } = string.Empty;
+        public string UnidadMedida { get; set; } = string.Empty;
+        public decimal Precio { get; set; }
+        public Moneda Moneda { get; set; } = Moneda.ARS;
+    }
 }

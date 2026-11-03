@@ -14,23 +14,32 @@ namespace StockManufactura.Web.Infrastructure
             var movimiento = OrdenProduccion.MovimientoDeStock(anterior, orden.Estado);
             if (movimiento == 0) { return; }
 
-            var producto = await unitOfWork.Productos.GetByIdAsync(orden.ProductoId)
-                ?? throw new InvalidOperationException("No se encontró el producto de la orden.");
+            // Primero se buscan y validan todos los productos: si a uno le falta stock, no se mueve ninguno.
+            var lineas = new List<(Producto Producto, decimal Cantidad)>();
+            foreach (var item in orden.Items)
+            {
+                var producto = await unitOfWork.Productos.GetByIdAsync(item.ProductoId)
+                    ?? throw new InvalidOperationException("No se encontró uno de los productos de la orden.");
+                lineas.Add((producto, item.Cantidad));
+            }
+
             if (movimiento < 0)
             {
-                if (producto.StockActual < orden.CantidadPlaneada)
+                var faltantes = lineas
+                    .Where(x => x.Producto.StockActual < x.Cantidad)
+                    .Select(x => $"{x.Producto.Nombre} (faltan {x.Cantidad - x.Producto.StockActual:0.##} unidades)")
+                    .ToList();
+                if (faltantes.Count > 0)
                 {
-                    throw new InvalidOperationException($"Stock insuficiente de {producto.Nombre} para completar el pedido. Faltan {orden.CantidadPlaneada - producto.StockActual:0.##} unidades.");
+                    throw new InvalidOperationException($"Stock insuficiente para completar el pedido: {string.Join(", ", faltantes)}.");
                 }
-
-                producto.StockActual -= orden.CantidadPlaneada;
             }
-            else
+
+            foreach (var (producto, cantidad) in lineas)
             {
-                producto.StockActual += orden.CantidadPlaneada;
+                producto.StockActual += movimiento * cantidad;
+                unitOfWork.Productos.Update(producto);
             }
-
-            unitOfWork.Productos.Update(producto);
         }
     }
 }

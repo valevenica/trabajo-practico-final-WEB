@@ -18,8 +18,15 @@
     <div class="split">
         <section class="card">
             <h2>Agregar cotización</h2>
-            <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(ActualizarBlueAsync)">🔄 Actualizar blue</button>
-            <p class="muted small">Obtiene el precio de venta del dólar blue en tiempo real desde DolarHoy.</p>
+            <div class="form-actions wrap">
+                <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(ActualizarBlueAsync)">🔄 Actualizar blue</button>
+                <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(RecalcularUsdAsync)"
+                        title="Recalcula el equivalente en pesos de todos los insumos en USD con la cotización activa y actualiza los precios de productos">
+                    Recalcular precios en USD
+                </button>
+            </div>
+            <p class="muted small">«Actualizar blue» obtiene el precio de venta del dólar blue en tiempo real desde DolarHoy. Cada vez que cambia
+                la cotización activa se recalculan automáticamente los precios de los insumos en USD y de los productos que los usan.</p>
 
             <h3>Carga manual</h3>
             <div class="form-grid">
@@ -76,6 +83,7 @@
     private string _fuenteManual = string.Empty;
 
     private IMonetaryConfigurationService Monetario => Servicio<IMonetaryConfigurationService>();
+    private IResourcePricingService Pricing => Servicio<IResourcePricingService>();
 
     protected override async Task CargarAsync()
     {
@@ -94,7 +102,7 @@
             // Sin conexión, el servicio devuelve la última cotización conocida en lugar de una nueva.
             StatusMessage = conocidas.Contains(cotizacion.Id)
                 ? $"No se pudo obtener la cotización en línea (sin conexión con el servicio). Se mantiene la última conocida: $ {cotizacion.Valor.ToString("N2", Cultura)}."
-                : $"Dólar blue actualizado: $ {cotizacion.Valor.ToString("N2", Cultura)}";
+                : $"Dólar blue actualizado: $ {cotizacion.Valor.ToString("N2", Cultura)}. {await RecalcularTrasCambioAsync()}";
         }
         catch (Exception ex)
         {
@@ -114,7 +122,7 @@
 
         var fuente = string.IsNullOrWhiteSpace(_fuenteManual) ? "Manual" : _fuenteManual.Trim();
         await Monetario.UpdateManualAsync(_valorManual.Value, fuente, Session.Actor);
-        StatusMessage = $"Cotización manual guardada: $ {_valorManual.Value.ToString("N2", Cultura)} ({fuente})";
+        StatusMessage = $"Cotización manual guardada: $ {_valorManual.Value.ToString("N2", Cultura)} ({fuente}). {await RecalcularTrasCambioAsync()}";
         _valorManual = null;
         _fuenteManual = string.Empty;
         await RecargarConservandoMensajeAsync();
@@ -125,8 +133,28 @@
         if (_seleccionada is null) { StatusMessage = "Seleccioná una cotización de la tabla."; return; }
 
         await Monetario.SetPrioritariaAsync(_seleccionada.Id, Session.Actor);
-        StatusMessage = $"Cotización prioritaria: $ {_seleccionada.Valor.ToString("N2", Cultura)} ({_seleccionada.Fuente})";
+        StatusMessage = $"Cotización prioritaria: $ {_seleccionada.Valor.ToString("N2", Cultura)} ({_seleccionada.Fuente}). {await RecalcularTrasCambioAsync()}";
         await RecargarConservandoMensajeAsync();
+    }
+
+    private async Task RecalcularUsdAsync()
+    {
+        var cantidad = await Pricing.RecalcularTodosUSDAsync(Session.Actor);
+        StatusMessage = $"Recálculo completado: {cantidad} insumo(s) en USD actualizados con la cotización activa y productos recalculados.";
+    }
+
+    // Al cambiar la cotización activa se actualizan solos los precios en USD; el texto se agrega al mensaje de la acción.
+    private async Task<string> RecalcularTrasCambioAsync()
+    {
+        try
+        {
+            var cantidad = await Pricing.RecalcularTodosUSDAsync(Session.Actor);
+            return $"Se recalcularon automáticamente {cantidad} insumo(s) en USD y los precios de los productos.";
+        }
+        catch (Exception ex)
+        {
+            return $"No se pudieron recalcular los precios en USD ({ex.Message}); usá «Recalcular precios en USD».";
+        }
     }
 
     private async Task RecargarConservandoMensajeAsync()

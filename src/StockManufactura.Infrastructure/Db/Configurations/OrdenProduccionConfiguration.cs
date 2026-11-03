@@ -12,7 +12,6 @@ namespace StockManufactura.Infrastructure.Db.Configurations
             builder.HasKey(x => x.Id);
 
             builder.Property(x => x.Codigo).IsRequired().HasMaxLength(50);
-            builder.Property(x => x.CantidadPlaneada).HasColumnType("decimal(18,4)");
             builder.Property(x => x.CantidadProducida).HasColumnType("decimal(18,4)");
             builder.Property(x => x.Estado).HasConversion<int>().IsRequired();
             builder.Property(x => x.Observaciones).HasMaxLength(2000);
@@ -24,12 +23,14 @@ namespace StockManufactura.Infrastructure.Db.Configurations
             builder.Property(x => x.IsDeleted).HasDefaultValue(false);
 
             builder.HasIndex(x => x.Codigo).IsUnique();
-            builder.HasIndex(x => x.ProductoId);
+            builder.Ignore(x => x.CantidadPlaneada);
 
-            builder.HasOne<Producto>()
-                .WithMany()
-                .HasForeignKey(x => x.ProductoId)
-                .OnDelete(DeleteBehavior.Restrict);
+            // Los productos del pedido se leen siempre junto con la orden.
+            builder.HasMany(x => x.Items)
+                .WithOne()
+                .HasForeignKey(x => x.OrdenProduccionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            builder.Navigation(x => x.Items).UsePropertyAccessMode(PropertyAccessMode.Field).AutoInclude();
 
             // Cliente opcional: sin cliente, el pedido es una venta a consumidor final. Un cliente con pedidos no se
             // elimina, se desactiva.

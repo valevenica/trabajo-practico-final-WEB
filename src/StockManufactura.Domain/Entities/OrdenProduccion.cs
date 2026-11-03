@@ -1,27 +1,40 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace StockManufactura.Domain.Entities
 {
     public sealed class OrdenProduccion : BaseEntity
     {
-        public OrdenProduccion(string codigo, Guid productoId, decimal cantidadPlaneada, string observaciones, Guid? clienteId = null)
+        private readonly List<OrdenProduccionItem> _items = new();
+
+        public OrdenProduccion(string codigo, IEnumerable<(Guid ProductoId, decimal Cantidad)> items, string observaciones, Guid? clienteId = null)
         {
             Codigo = codigo;
-            ProductoId = productoId;
-            CantidadPlaneada = cantidadPlaneada;
             Observaciones = observaciones;
             ClienteId = clienteId;
             Estado = EstadoOrdenProduccion.Borrador;
+            CargarItems(items);
+        }
+
+        /// <summary>Orden de un solo producto.</summary>
+        public OrdenProduccion(string codigo, Guid productoId, decimal cantidadPlaneada, string observaciones, Guid? clienteId = null)
+            : this(codigo, new[] { (productoId, cantidadPlaneada) }, observaciones, clienteId)
+        {
         }
 
         private OrdenProduccion() { }
 
         public string Codigo { get; private set; } = string.Empty;
-        public Guid ProductoId { get; private set; }
+
+        /// <summary>Productos del pedido, cada uno con su cantidad.</summary>
+        public IReadOnlyCollection<OrdenProduccionItem> Items => _items.AsReadOnly();
 
         /// <summary>Cliente del pedido; <c>null</c> cuando la venta es a consumidor final.</summary>
         public Guid? ClienteId { get; private set; }
-        public decimal CantidadPlaneada { get; private set; }
+
+        /// <summary>Total de unidades pedidas, sumando todos los productos.</summary>
+        public decimal CantidadPlaneada => _items.Sum(x => x.Cantidad);
         public decimal CantidadProducida { get; private set; }
         public EstadoOrdenProduccion Estado { get; private set; }
         public string Observaciones { get; private set; } = string.Empty;
@@ -141,6 +154,38 @@ namespace StockManufactura.Domain.Entities
         {
             Observaciones = observaciones ?? string.Empty;
             UpdateTimestamp();
+        }
+
+        /// <summary>
+        /// Reemplaza los productos del pedido. Solo mientras está en espera (borrador o planificada), porque recién al
+        /// pasar a en proceso se descuenta el stock de cada producto.
+        /// </summary>
+        public void ReemplazarItems(IEnumerable<(Guid ProductoId, decimal Cantidad)> items)
+        {
+            if (Estado != EstadoOrdenProduccion.Borrador && Estado != EstadoOrdenProduccion.Planificada)
+            {
+                throw new InvalidOperationException("Solo se pueden cambiar los productos de una orden en borrador o planificada.");
+            }
+
+            CargarItems(items);
+            UpdateTimestamp();
+        }
+
+        private void CargarItems(IEnumerable<(Guid ProductoId, decimal Cantidad)> items)
+        {
+            // El mismo producto cargado dos veces se suma en una sola línea.
+            var agrupados = (items ?? Enumerable.Empty<(Guid ProductoId, decimal Cantidad)>())
+                .GroupBy(x => x.ProductoId)
+                .Select(g => new OrdenProduccionItem(Id, g.Key, g.Sum(x => x.Cantidad)))
+                .ToList();
+
+            if (agrupados.Count == 0)
+            {
+                throw new InvalidOperationException("La orden debe tener al menos un producto.");
+            }
+
+            _items.Clear();
+            _items.AddRange(agrupados);
         }
 
         /// <summary>

@@ -19,16 +19,6 @@
             <div class="form-grid">
                 <div><label>Código (vacío = automático)</label><input @bind="_codigo" disabled="@(_seleccionada is not null)" /></div>
                 <div>
-                    <label>Producto</label>
-                    <select @bind="_productoId" disabled="@(_seleccionada is not null)">
-                        @foreach (var p in ProductosParaSelector)
-                        {
-                            <option value="@p.Id">@p.Nombre @(p.Activo ? "" : "(inactivo)")</option>
-                        }
-                    </select>
-                </div>
-                <div><label>Cantidad planeada</label><input type="number" step="1" min="0" @bind="_cantidad" disabled="@(_seleccionada is not null)" /></div>
-                <div>
                     <label>Cliente</label>
                     <select @bind="_clienteId">
                         <option value="">Consumidor final</option>
@@ -40,10 +30,46 @@
                 </div>
                 <div class="span-2"><label>Observaciones</label><textarea rows="2" @bind="_observaciones"></textarea></div>
             </div>
-            @if (ProductoElegido is { } prod)
+
+            <h3>Productos del pedido</h3>
+            @if (LineasEditables)
             {
-                <p class="muted">Stock de @prod.Nombre: @prod.StockActual.ToString("0.##") · reservado en órdenes en espera: @Reservado(prod.Id).ToString("0.##")</p>
+                <div class="inline-form">
+                    <select @bind="_productoId">
+                        @foreach (var p in _productos.Where(p => p.Activo))
+                        {
+                            <option value="@p.Id">@p.Nombre</option>
+                        }
+                    </select>
+                    <input type="number" step="1" min="0" placeholder="Cantidad" @bind="_cantidad" />
+                    <button class="btn btn-secondary" @onclick="AgregarLinea">+ Agregar producto</button>
+                </div>
             }
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr><th>Producto</th><th class="num">Cantidad</th><th class="num">Stock</th><th class="num">Reservado</th>@if (LineasEditables) { <th></th> }</tr></thead>
+                    <tbody>
+                        @foreach (var l in _lineas)
+                        {
+                            var prod = _productos.FirstOrDefault(x => x.Id == l.ProductoId);
+                            <tr>
+                                <td>@(prod?.Nombre ?? "Producto eliminado") @if (prod is { Activo: false }) { <span class="badge badge-inactivo">Inactivo</span> }</td>
+                                <td class="num">@l.Cantidad.ToString("0.##")</td>
+                                <td class="num">@(prod?.StockActual.ToString("0.##") ?? "—")</td>
+                                <td class="num" title="Unidades de este producto en órdenes en espera">@Reservado(l.ProductoId).ToString("0.##")</td>
+                                @if (LineasEditables)
+                                {
+                                    <td class="row-actions"><button class="btn btn-link danger" @onclick="() => _lineas.Remove(l)">Quitar</button></td>
+                                }
+                            </tr>
+                        }
+                        @if (_lineas.Count == 0)
+                        {
+                            <tr><td colspan="5" class="muted">Agregá al menos un producto.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
 
             <div class="form-actions wrap">
                 @if (_seleccionada is null)
@@ -53,6 +79,10 @@
                 else
                 {
                     <span>Estado: <EstadoOrdenBadge Estado="_seleccionada.Estado" /></span>
+                    @if (LineasEditables)
+                    {
+                        <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(GuardarLineasAsync)">Guardar productos</button>
+                    }
                     <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(BorradorAsync)">Borrador</button>
                     <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(PlanificarAsync)">Planificar</button>
                     <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(IniciarAsync)">Iniciar</button>
@@ -76,7 +106,7 @@
                         {
                             <tr class="@(o.Id == _seleccionada?.Id ? "selected" : "")" @onclick="() => Seleccionar(o)">
                                 <td class="code">@o.Codigo</td>
-                                <td>@NombreProducto(o.ProductoId)</td>
+                                <td>@ResumenProductos(o)</td>
                                 <td>@(o.ClienteId is { } c ? _clientes.FirstOrDefault(x => x.Id == c)?.Nombre ?? "—" : "Consumidor final")</td>
                                 <td class="num">@o.CantidadPlaneada.ToString("0.##")</td>
                                 <td><EstadoOrdenBadge Estado="o.Estado" /></td>
@@ -111,10 +141,14 @@
 
     private IUnitOfWork UnitOfWork => Servicio<IUnitOfWork>();
 
+    private List<Linea> _lineas = new();
+
     private Producto? ProductoElegido => _productos.FirstOrDefault(x => x.Id == _productoId);
 
-    // Las órdenes nuevas solo ofrecen productos y clientes activos; una orden existente muestra los suyos aunque estén inactivos.
-    private IEnumerable<Producto> ProductosParaSelector => _productos.Where(p => p.Activo || p.Id == _seleccionada?.ProductoId);
+    // Los productos se pueden cambiar mientras la orden no movió stock: al crearla y mientras sigue en espera.
+    private bool LineasEditables => _seleccionada is null || EnEspera(_seleccionada.Estado);
+
+    // Las órdenes nuevas solo ofrecen clientes activos; una orden existente muestra el suyo aunque esté inactivo.
     private IEnumerable<Cliente> ClientesParaSelector => _clientes.Where(c => c.Activo || c.Id == _seleccionada?.ClienteId);
 
     protected override async Task CargarAsync()
@@ -145,15 +179,33 @@
 
     private string NombreProducto(Guid id) => _productos.FirstOrDefault(x => x.Id == id)?.Nombre ?? "—";
 
+    private string ResumenProductos(OrdenProduccion o) => o.Items.Count == 1
+        ? NombreProducto(o.Items.First().ProductoId)
+        : string.Join(", ", o.Items.Select(i => $"{NombreProducto(i.ProductoId)} ×{i.Cantidad:0.##}"));
+
     private decimal Reservado(Guid productoId)
-        => _ordenes.Where(o => EnEspera(o.Estado) && o.ProductoId == productoId).Sum(o => o.CantidadPlaneada);
+        => _ordenes.Where(o => EnEspera(o.Estado)).SelectMany(o => o.Items).Where(i => i.ProductoId == productoId).Sum(i => i.Cantidad);
+
+    private void AgregarLinea()
+    {
+        if (ProductoElegido is not { Activo: true } producto) { StatusMessage = "Seleccioná un producto."; return; }
+        if (_cantidad <= 0) { StatusMessage = "Ingresá una cantidad mayor a cero."; return; }
+
+        // El mismo producto agregado de nuevo suma su cantidad a la línea existente.
+        var existente = _lineas.FirstOrDefault(x => x.ProductoId == producto.Id);
+        if (existente is not null) { existente.Cantidad += _cantidad; }
+        else { _lineas.Add(new Linea { ProductoId = producto.Id, Cantidad = _cantidad }); }
+
+        _cantidad = 0;
+        StatusMessage = string.Empty;
+    }
 
     private void Seleccionar(OrdenProduccion o)
     {
         _seleccionada = o;
         _codigo = o.Codigo;
-        _productoId = o.ProductoId;
-        _cantidad = o.CantidadPlaneada;
+        _lineas = o.Items.Select(i => new Linea { ProductoId = i.ProductoId, Cantidad = i.Cantidad }).ToList();
+        _cantidad = 0;
         _clienteId = o.ClienteId?.ToString() ?? string.Empty;
         _observaciones = o.Observaciones;
         StatusMessage = string.Empty;
@@ -162,6 +214,7 @@
     private void NuevaOrden()
     {
         _seleccionada = null;
+        _lineas = new();
         _cantidad = 0;
         _observaciones = string.Empty;
         _clienteId = string.Empty;
@@ -169,18 +222,19 @@
         {
             _productoId = _productos.FirstOrDefault(x => x.Activo)?.Id ?? Guid.Empty;
         }
-        StatusMessage = "Nueva orden. Para agregar otro producto al mismo pedido, mantené el código y elegí otro producto.";
+        StatusMessage = "Nueva orden. Agregá los productos del pedido con su cantidad.";
     }
 
     private Guid? ClienteElegido => Guid.TryParse(_clienteId, out var id) ? id : null;
 
     private async Task CrearAsync()
     {
-        if (ProductoElegido is not { Activo: true } producto) { StatusMessage = "Debe seleccionar un producto."; return; }
-        if (_cantidad <= 0) { StatusMessage = "Cantidad planeada inválida."; return; }
+        if (_lineas.Count == 0) { StatusMessage = "Agregá al menos un producto al pedido."; return; }
 
         var codigo = string.IsNullOrWhiteSpace(_codigo) ? GenerarCodigo() : _codigo.Trim().ToUpperInvariant();
-        var orden = new OrdenProduccion(codigo, producto.Id, _cantidad, _observaciones.Trim(), ClienteElegido);
+        if (_ordenes.Any(x => string.Equals(x.Codigo, codigo, StringComparison.OrdinalIgnoreCase))) { StatusMessage = $"Ya existe una orden con el código {codigo}."; return; }
+
+        var orden = new OrdenProduccion(codigo, _lineas.Select(l => (l.ProductoId, l.Cantidad)), _observaciones.Trim(), ClienteElegido);
         await UnitOfWork.OrdenesProduccion.AddAsync(orden);
         await UnitOfWork.SaveChangesAsync();
         await RegistrarAuditoriaAsync("Crear", orden, "Alta de orden de producción.");
@@ -188,38 +242,76 @@
         await CargarAsync();
         // Queda seleccionada para poder avanzarla de estado enseguida.
         Seleccionar(_ordenes.First(x => x.Id == orden.Id));
-        StatusMessage = await AvisoStockAsync(codigo, producto.Id);
+        StatusMessage = await AvisoStockAsync($"Orden {codigo} creada.", orden);
     }
 
-    private async Task<string> AvisoStockAsync(string codigo, Guid productoId)
+    private async Task GuardarLineasAsync()
     {
-        var producto = _productos.First(x => x.Id == productoId);
-        var disponible = producto.StockActual - Reservado(productoId);
-        if (disponible >= 0)
+        if (_seleccionada is null) { return; }
+        if (_lineas.Count == 0) { StatusMessage = "La orden debe tener al menos un producto."; return; }
+
+        var orden = _seleccionada;
+        try
         {
-            return $"Orden {codigo} creada. Para agregar otro producto a la misma orden, mantené el código y seleccioná otro producto.";
+            orden.ReemplazarItems(_lineas.Select(l => (l.ProductoId, l.Cantidad)));
+            await UnitOfWork.OrdenesProduccion.ActualizarConItemsAsync(orden);
+            await UnitOfWork.SaveChangesAsync();
+            await RegistrarAuditoriaAsync("EditarProductos", orden, $"Productos del pedido: {ResumenProductos(orden)}.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            var error = ex.Message;
+            await CargarAsync();
+            if (_seleccionada is not null) { Seleccionar(_seleccionada); }
+            StatusMessage = error;
+            return;
         }
 
-        var faltante = -disponible;
-        var aviso = $"La orden {codigo} quedó en espera: falta stock de {producto.Nombre} para completar el pedido (faltan {faltante:0.##} unidades, considerando otras órdenes en espera de este producto).";
+        await CargarAsync();
+        Seleccionar(_ordenes.First(x => x.Id == orden.Id));
+        StatusMessage = await AvisoStockAsync($"Productos de la orden {orden.Codigo} actualizados.", orden);
+    }
 
-        // Solo informativo: ¿alcanzan los insumos para fabricar las unidades faltantes?
-        var faltantesInsumos = new List<string>();
-        foreach (var item in (await UnitOfWork.RecetaProductoItems.ListByProductIdAsync(productoId)).Where(x => x.RecursoId.HasValue))
+    /// <summary>
+    /// Avisa qué productos del pedido no alcanzan (considerando otras órdenes en espera) y, solo como información, si los
+    /// insumos alcanzan para fabricar las unidades faltantes.
+    /// </summary>
+    private async Task<string> AvisoStockAsync(string encabezado, OrdenProduccion orden)
+    {
+        var faltantesProductos = new List<string>();
+        var requeridoPorInsumo = new Dictionary<Guid, (Recurso Recurso, decimal Requerido)>();
+        foreach (var item in orden.Items)
         {
-            var recurso = await UnitOfWork.Recursos.GetByIdAsync(item.RecursoId!.Value);
-            if (recurso is null || recurso.EsServicio) { continue; }
+            var producto = _productos.FirstOrDefault(x => x.Id == item.ProductoId);
+            if (producto is null) { continue; }
 
-            var requerido = item.Cantidad * faltante;
-            if (recurso.StockActual < requerido)
+            var faltante = Reservado(producto.Id) - producto.StockActual;
+            if (faltante <= 0) { continue; }
+
+            faltantesProductos.Add($"{producto.Nombre} (faltan {faltante:0.##} unidades)");
+            foreach (var receta in (await UnitOfWork.RecetaProductoItems.ListByProductIdAsync(producto.Id)).Where(x => x.RecursoId.HasValue))
             {
-                faltantesInsumos.Add($"{recurso.Nombre} (faltan {requerido - recurso.StockActual:0.##} {recurso.UnidadMedida})");
+                var recurso = await UnitOfWork.Recursos.GetByIdAsync(receta.RecursoId!.Value);
+                if (recurso is null || recurso.EsServicio) { continue; }
+
+                var previo = requeridoPorInsumo.TryGetValue(recurso.Id, out var acumulado) ? acumulado.Requerido : 0m;
+                requeridoPorInsumo[recurso.Id] = (recurso, previo + receta.Cantidad * faltante);
             }
         }
 
-        if (faltantesInsumos.Count > 0)
+        if (faltantesProductos.Count == 0)
         {
-            aviso += $" Además, no alcanzan los insumos para fabricar esas {faltante:0.##} unidades: {string.Join(", ", faltantesInsumos)}.";
+            return encabezado;
+        }
+
+        var aviso = $"{encabezado} Queda en espera: falta stock para completar el pedido (considerando otras órdenes en espera): {string.Join(", ", faltantesProductos)}.";
+        var insumosQueNoAlcanzan = requeridoPorInsumo.Values
+            .Where(x => x.Recurso.StockActual < x.Requerido)
+            .Select(x => $"{x.Recurso.Nombre} (faltan {x.Requerido - x.Recurso.StockActual:0.##} {x.Recurso.UnidadMedida})")
+            .ToList();
+        if (insumosQueNoAlcanzan.Count > 0)
+        {
+            aviso += $" Además, no alcanzan los insumos para fabricar esas unidades: {string.Join(", ", insumosQueNoAlcanzan)}.";
         }
 
         await JS.InvokeVoidAsync("alert", aviso);
@@ -328,5 +420,11 @@
             Descripcion = descripcion,
             Equipo = WebSession.Equipo
         });
+    }
+
+    private sealed class Linea
+    {
+        public Guid ProductoId { get; init; }
+        public decimal Cantidad { get; set; }
     }
 }

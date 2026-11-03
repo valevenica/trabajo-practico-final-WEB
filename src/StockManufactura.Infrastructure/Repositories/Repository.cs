@@ -34,13 +34,13 @@ namespace StockManufactura.Infrastructure.Repositories
             await _dbSet.AddAsync(entity);
         }
 
-        public void Update(TEntity entity)
+        public virtual void Update(TEntity entity)
         {
             DetachOtherInstanceWithSameKey(entity);
             _dbSet.Update(entity);
         }
 
-        public void Delete(TEntity entity)
+        public virtual void Delete(TEntity entity)
         {
             DetachOtherInstanceWithSameKey(entity);
             _dbSet.Remove(entity);

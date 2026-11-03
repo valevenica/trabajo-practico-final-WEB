@@ -26,8 +26,9 @@ namespace StockManufactura.Application.Services
 
             var reservedByProduct = orders
                 .Where(o => o.Estado == EstadoOrdenProduccion.Borrador || o.Estado == EstadoOrdenProduccion.Planificada)
-                .GroupBy(o => o.ProductoId)
-                .ToDictionary(g => g.Key, g => g.Sum(o => o.CantidadPlaneada));
+                .SelectMany(o => o.Items)
+                .GroupBy(i => i.ProductoId)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.Cantidad));
 
             var productShortages = new List<ProductShortageRow>();
             var orderShortfallByProduct = new Dictionary<Guid, decimal>();

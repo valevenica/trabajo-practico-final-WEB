@@ -311,7 +311,7 @@ public static class CasosFuncionales
         await Caso("F30", "Quitar un proveedor de un insumo y marcar otro como prioritario en la misma sesión", async () =>
         {
             await Ir(admin, b, "insumos");
-            await admin.Locator(".list-panel tbody tr", new() { HasTextString = "Cera de soja" }).ClickAsync(); await admin.WaitForTimeoutAsync(900);
+            await admin.Locator(".item-list li", new() { HasTextString = "Cera de soja" }).ClickAsync(); await admin.WaitForTimeoutAsync(900);
             var tarjeta = admin.Locator(".card", new() { HasText = "Proveedores del insumo" });
             await tarjeta.Locator(".inline-form select").SelectOptionAsync(new SelectOptionValue { Label = "Ceras del Litoral" });
             await tarjeta.Locator(".inline-form input[type=number]").FillAsync("13.40");

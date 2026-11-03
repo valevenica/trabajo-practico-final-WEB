@@ -73,7 +73,8 @@ namespace StockManufactura.Application.Services
                 OrdenesEnProceso = ordenes.Count(o => o.Estado == EstadoOrdenProduccion.EnProceso),
                 ProduccionValorizada = ordenesPeriodo
                     .Where(o => o.Estado == EstadoOrdenProduccion.Finalizada)
-                    .Sum(o => (productosPorId.TryGetValue(o.ProductoId, out var p) ? p.PrecioSugeridoActual : 0m) * o.CantidadPlaneada),
+                    .SelectMany(o => o.Items)
+                    .Sum(i => (productosPorId.TryGetValue(i.ProductoId, out var p) ? p.PrecioSugeridoActual : 0m) * i.Cantidad),
                 VariacionCostoPromedioPct = variacionPromedio,
                 CotizacionVigente = monetario.CurrentRate,
 

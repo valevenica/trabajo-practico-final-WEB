@@ -78,7 +78,8 @@ namespace StockManufactura.Application.Services
             var finishedInPeriod = FinishedIn(orders, year, month);
             var monthlySalesTotal = SalesOf(finishedInPeriod, productsById);
             var monthlySalesCost = finishedInPeriod
-                .Sum(order => (productsById.TryGetValue(order.ProductoId, out var product) ? product.CostoFabricacionActual : 0m) * order.CantidadPlaneada);
+                .SelectMany(order => order.Items)
+                .Sum(item => (productsById.TryGetValue(item.ProductoId, out var product) ? product.CostoFabricacionActual : 0m) * item.Cantidad);
 
             decimal? previousSales = null;
             decimal? salesVariation = null;
@@ -153,7 +154,8 @@ namespace StockManufactura.Application.Services
                 .ToArray();
 
         private static decimal SalesOf(IEnumerable<OrdenProduccion> finished, IReadOnlyDictionary<Guid, Producto> productsById)
-            => finished.Sum(order => (productsById.TryGetValue(order.ProductoId, out var product) ? product.PrecioSugeridoActual : 0m) * order.CantidadPlaneada);
+            => finished.SelectMany(order => order.Items)
+                .Sum(item => (productsById.TryGetValue(item.ProductoId, out var product) ? product.PrecioSugeridoActual : 0m) * item.Cantidad);
 
         private static bool IsInPeriod(DateTime value, int? year, int? month)
         {

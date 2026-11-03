@@ -54,8 +54,31 @@ public class OrdenStockTests
         var error = await Assert.ThrowsAsync<InvalidOperationException>(
             () => OrdenStock.AplicarMovimientoAsync(_unitOfWork, EstadoOrdenProduccion.Planificada, orden));
 
-        Assert.Contains("Faltan 3", error.Message);
+        Assert.Contains("faltan 3", error.Message);
         Assert.Equal(2, producto.StockActual);
+    }
+
+    [Fact]
+    public async Task PedidoConVariosProductos_MueveCadaUnoYSiFaltaUnoNoTocaNinguno()
+    {
+        var vela = new Producto { Codigo = "PRD-1", Nombre = "Vela", StockActual = 10 };
+        var difusor = new Producto { Codigo = "PRD-2", Nombre = "Difusor", StockActual = 3 };
+        _unitOfWork.ProductosFake.Seed(vela);
+        _unitOfWork.ProductosFake.Seed(difusor);
+
+        var orden = new OrdenProduccion("OP-3", new[] { (vela.Id, 4m), (difusor.Id, 2m) }, string.Empty);
+        orden.MarcarEnProgreso();
+        await OrdenStock.AplicarMovimientoAsync(_unitOfWork, EstadoOrdenProduccion.Planificada, orden);
+        Assert.Equal(6, vela.StockActual);
+        Assert.Equal(1, difusor.StockActual);
+
+        var grande = new OrdenProduccion("OP-4", new[] { (vela.Id, 1m), (difusor.Id, 5m) }, string.Empty);
+        grande.MarcarEnProgreso();
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => OrdenStock.AplicarMovimientoAsync(_unitOfWork, EstadoOrdenProduccion.Planificada, grande));
+        Assert.Contains("Difusor", error.Message);
+        Assert.Equal(6, vela.StockActual);
+        Assert.Equal(1, difusor.StockActual);
     }
 
     [Fact]

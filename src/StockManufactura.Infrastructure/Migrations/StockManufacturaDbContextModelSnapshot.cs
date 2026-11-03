@@ -320,9 +320,6 @@ namespace StockManufactura.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<decimal>("CantidadPlaneada")
-                        .HasColumnType("decimal(18,4)");
-
                     b.Property<decimal>("CantidadProducida")
                         .HasColumnType("decimal(18,4)");
 
@@ -356,9 +353,6 @@ namespace StockManufactura.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("ProductoId")
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("TEXT");
 
@@ -369,9 +363,41 @@ namespace StockManufactura.Infrastructure.Migrations
                     b.HasIndex("Codigo")
                         .IsUnique();
 
+                    b.ToTable("OrdenesProduccion", (string)null);
+                });
+
+            modelBuilder.Entity("StockManufactura.Domain.Entities.OrdenProduccionItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Cantidad")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("OrdenProduccionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ProductoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenProduccionId");
+
                     b.HasIndex("ProductoId");
 
-                    b.ToTable("OrdenesProduccion", (string)null);
+                    b.ToTable("OrdenesProduccionItems", (string)null);
                 });
 
             modelBuilder.Entity("StockManufactura.Domain.Entities.ProductCostHistory", b =>
@@ -1074,6 +1100,15 @@ namespace StockManufactura.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ClienteId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("StockManufactura.Domain.Entities.OrdenProduccionItem", b =>
+                {
+                    b.HasOne("StockManufactura.Domain.Entities.OrdenProduccion", null)
+                        .WithMany("Items")
+                        .HasForeignKey("OrdenProduccionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("StockManufactura.Domain.Entities.Producto", null)
                         .WithMany()
@@ -1208,6 +1243,11 @@ namespace StockManufactura.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Rol");
+                });
+
+            modelBuilder.Entity("StockManufactura.Domain.Entities.OrdenProduccion", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

@@ -8,6 +8,69 @@
 
 <PaginaMarco Titulo="Ingresos de stock" Cargando="Cargando" AccesoDenegado="@AccesoDenegado">
     <div class="card">
+        <h2>Cargar desde factura (PDF)</h2>
+        <p class="muted">Elegí la factura electrónica del proveedor en PDF. Se leen sus renglones y se cruzan con los insumos por el
+            código del proveedor (cargado en «Proveedores del insumo») o, si no, por el código propio. Revisá la vista previa y
+            agregá los renglones a la lista de ingreso.</p>
+        <div class="form-grid">
+            <div>
+                <label>Factura</label>
+                <InputFile OnChange="FacturaElegidaAsync" accept=".pdf" disabled="@Ocupado" />
+            </div>
+            <div>
+                <label>Proveedor</label>
+                <select value="@_facturaProveedorId" @onchange="CambiarProveedorFacturaAsync" disabled="@(_factura is null)">
+                    <option value="">Sin proveedor (solo código propio)</option>
+                    @foreach (var p in _proveedores)
+                    {
+                        <option value="@p.Id">@p.Nombre</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        @if (_factura is not null)
+        {
+            <p class="small muted">@DatosFactura</p>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead><tr><th>Código</th><th>Descripción en la factura</th><th class="num">Cantidad</th><th class="num">Precio unit.</th><th>Insumo del sistema</th></tr></thead>
+                    <tbody>
+                        @foreach (var r in _renglonesFactura)
+                        {
+                            <tr class="@(r.RecursoId.Length == 0 ? "import-noencontrado" : "")">
+                                <td class="code">@r.Renglon.Codigo</td>
+                                <td>@r.Renglon.Descripcion</td>
+                                <td class="num"><input type="number" step="0.01" min="0" @bind="r.Cantidad" style="max-width: 110px" /> @r.Renglon.Unidad</td>
+                                <td class="num">@r.Renglon.PrecioUnitario.ToString("N2", Cultura)</td>
+                                <td>
+                                    <select @bind="r.RecursoId">
+                                        <option value="">— No ingresar —</option>
+                                        @foreach (var i in _items.Where(x => !x.EsProducto))
+                                        {
+                                            <option value="@i.Id">@i.Nombre (@i.Unidad)</option>
+                                        }
+                                    </select>
+                                </td>
+                            </tr>
+                        }
+                        @if (_renglonesFactura.Count == 0)
+                        {
+                            <tr><td colspan="5" class="muted">No se encontraron renglones de detalle en la factura.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="form-actions">
+                <button class="btn btn-secondary" disabled="@(Ocupado || !_renglonesFactura.Any(x => x.RecursoId.Length > 0))" @onclick="AgregarRenglonesFactura">
+                    Agregar a la lista de ingreso (@_renglonesFactura.Count(x => x.RecursoId.Length > 0))
+                </button>
+                <button class="btn btn-link" @onclick="DescartarFactura">Descartar factura</button>
+            </div>
+        }
+    </div>
+
+    <div class="card">
         <p class="muted">Agregá los productos o insumos recibidos o fabricados y guardá para aplicar todos los ingresos juntos.
             El ingreso de un producto descuenta los insumos de su receta.</p>
         <div class="inline-form">
@@ -67,16 +130,121 @@
     private string _itemKey = string.Empty;
     private decimal _cantidad;
 
+    private const long TamanioMaximoFactura = 10 * 1024 * 1024;
+    private static readonly CultureInfo Cultura = CultureInfo.GetCultureInfo("es-AR");
+
+    private List<Proveedor> _proveedores = new();
+    private List<Recurso> _recursos = new();
+    private FacturaLeida? _factura;
+    private string _facturaProveedorId = string.Empty;
+    private List<RenglonFactura> _renglonesFactura = new();
+
     protected override async Task CargarAsync()
     {
         var unitOfWork = Servicio<IUnitOfWork>();
         var productos = await unitOfWork.Productos.ListActivosAsync();
-        var recursos = await unitOfWork.Recursos.ListActivosAsync();
+        _recursos = (await unitOfWork.Recursos.ListActivosAsync()).Where(r => !r.EsServicio).ToList();
+        _proveedores = (await unitOfWork.Proveedores.ListAsync()).Where(p => p.Activo).OrderBy(p => p.Nombre).ToList();
 
-        _items = recursos.Where(r => !r.EsServicio).OrderBy(r => r.Nombre).Select(r => new StockItem(r.Id, r.Nombre, false, r.UnidadMedida))
+        _items = _recursos.OrderBy(r => r.Nombre).Select(r => new StockItem(r.Id, r.Nombre, false, r.UnidadMedida))
             .Concat(productos.OrderBy(p => p.Nombre).Select(p => new StockItem(p.Id, p.Nombre, true, "u.")))
             .ToList();
         StatusMessage = "Listo para registrar ingresos.";
+    }
+
+    private Task FacturaElegidaAsync(InputFileChangeEventArgs e) => EjecutarAsync(async () =>
+    {
+        if (e.File.Size > TamanioMaximoFactura) { StatusMessage = "La factura supera los 10 MB."; return; }
+
+        using var memoria = new MemoryStream();
+        await e.File.OpenReadStream(TamanioMaximoFactura).CopyToAsync(memoria);
+        memoria.Position = 0;
+        try
+        {
+            _factura = Servicio<IFacturaPdfReader>().Leer(memoria);
+        }
+        catch (Exception ex)
+        {
+            DescartarFactura();
+            StatusMessage = $"No se pudo leer la factura: {ex.Message}";
+            return;
+        }
+
+        // El proveedor se reconoce por el CUIT del emisor.
+        var proveedor = _factura.CuitEmisor.Length == 0 ? null
+            : _proveedores.FirstOrDefault(p => new string(p.Cuit.Where(char.IsDigit).ToArray()) == _factura.CuitEmisor);
+        _facturaProveedorId = proveedor?.Id.ToString() ?? string.Empty;
+        await CruzarRenglonesAsync();
+
+        var reconocidos = _renglonesFactura.Count(x => x.RecursoId.Length > 0);
+        StatusMessage = $"Factura leída: {_renglonesFactura.Count} renglón(es), {reconocidos} reconocido(s)."
+            + (proveedor is null ? " No se reconoció el proveedor por CUIT: elegilo para cruzar por su código." : $" Proveedor: {proveedor.Nombre}.");
+    });
+
+    private string DatosFactura => _factura is null ? string.Empty : string.Join(" · ", new[]
+    {
+        $"Comprobante {(_factura.NumeroComprobante.Length > 0 ? _factura.NumeroComprobante : "sin número")}",
+        _factura.Fecha?.ToString("dd/MM/yyyy") ?? string.Empty,
+        _factura.RazonSocialEmisor,
+        _factura.CuitEmisor.Length > 0 ? $"CUIT {_factura.CuitEmisor}" : string.Empty
+    }.Where(x => x.Length > 0));
+
+    private Task CambiarProveedorFacturaAsync(ChangeEventArgs e)
+    {
+        _facturaProveedorId = e.Value?.ToString() ?? string.Empty;
+        return EjecutarAsync(CruzarRenglonesAsync);
+    }
+
+    private async Task CruzarRenglonesAsync()
+    {
+        if (_factura is null) { return; }
+
+        var unitOfWork = Servicio<IUnitOfWork>();
+        var proveedorId = Guid.TryParse(_facturaProveedorId, out var id) ? id : (Guid?)null;
+        var renglones = new List<RenglonFactura>();
+        foreach (var renglon in _factura.Renglones)
+        {
+            Recurso? recurso = null;
+            if (renglon.Codigo.Length > 0)
+            {
+                if (proveedorId is { } pid && await unitOfWork.RecursoProveedores.GetByProveedorAndCodigoAsync(pid, renglon.Codigo) is { } vinculo)
+                {
+                    recurso = _recursos.FirstOrDefault(r => r.Id == vinculo.RecursoId);
+                }
+
+                recurso ??= _recursos.FirstOrDefault(r => string.Equals(r.Codigo, renglon.Codigo, StringComparison.OrdinalIgnoreCase));
+            }
+
+            renglones.Add(new RenglonFactura(renglon) { Cantidad = renglon.Cantidad, RecursoId = recurso?.Id.ToString() ?? string.Empty });
+        }
+
+        _renglonesFactura = renglones;
+    }
+
+    private void AgregarRenglonesFactura()
+    {
+        var agregados = 0;
+        foreach (var r in _renglonesFactura.Where(x => x.RecursoId.Length > 0 && x.Cantidad > 0))
+        {
+            var item = _items.FirstOrDefault(x => !x.EsProducto && x.Id.ToString() == r.RecursoId);
+            if (item is null) { continue; }
+
+            var existente = _lineas.FirstOrDefault(x => x.Item.Key == item.Key);
+            if (existente is not null) { existente.Cantidad += r.Cantidad; }
+            else { _lineas.Add(new Linea(item) { Cantidad = r.Cantidad }); }
+            agregados++;
+        }
+
+        var comprobante = _factura?.NumeroComprobante;
+        DescartarFactura();
+        StatusMessage = $"{agregados} renglón(es) de la factura {comprobante} agregados a la lista. Revisalos y registrá el ingreso para aplicarlos.";
+    }
+
+    private void DescartarFactura()
+    {
+        _factura = null;
+        _facturaProveedorId = string.Empty;
+        _renglonesFactura = new();
     }
 
     private void AgregarLinea()
@@ -119,5 +287,14 @@
     {
         public StockItem Item { get; } = item;
         public decimal Cantidad { get; set; }
+    }
+
+    private sealed class RenglonFactura(FacturaRenglon renglon)
+    {
+        public FacturaRenglon Renglon { get; } = renglon;
+        public decimal Cantidad { get; set; }
+
+        /// <summary>Insumo elegido para el renglón; vacío = no se ingresa.</summary>
+        public string RecursoId { get; set; } = string.Empty;
     }
 }

@@ -170,7 +170,7 @@ await Check("F34 producto usado como componente y desactivado", async () =>
 await Check("F35 insumo desactivado no se ofrece en recetas", async () =>
 {
     await page.GotoAsync(B + "insumos"); await page.WaitForTimeoutAsync(1200);
-    await page.Locator(".list-panel tbody tr").First.ClickAsync(); await page.WaitForTimeoutAsync(800);
+    await page.Locator(".item-list li").First.ClickAsync(); await page.WaitForTimeoutAsync(800);
     var nombre = await page.Locator(".form-grid input").Nth(1).InputValueAsync();
     await page.GetByRole(AriaRole.Button, new() { Name = "Desactivar insumo" }).ClickAsync(); await page.WaitForTimeoutAsync(1000);
     await page.GotoAsync(B + "productos"); await page.WaitForTimeoutAsync(1200);
@@ -178,7 +178,7 @@ await Check("F35 insumo desactivado no se ofrece en recetas", async () =>
     if ((await OpcionesComponentes()).Any(o => o.StartsWith(nombre + " ("))) throw new Exception("el insumo inactivo se ofrece en recetas");
     await page.GotoAsync(B + "insumos"); await page.WaitForTimeoutAsync(1200);
     await page.Locator("label.check", new() { HasText = "Mostrar inactivos" }).ClickAsync(); await page.WaitForTimeoutAsync(400);
-    await page.Locator(".list-panel tbody tr", new() { HasTextString = nombre }).First.ClickAsync(); await page.WaitForTimeoutAsync(800);
+    await page.Locator(".item-list li", new() { HasTextString = nombre }).First.ClickAsync(); await page.WaitForTimeoutAsync(800);
     await page.GetByRole(AriaRole.Button, new() { Name = "Reactivar insumo" }).ClickAsync(); await page.WaitForTimeoutAsync(1000);
     await page.GotoAsync(B + "productos"); await page.WaitForTimeoutAsync(1200);
     await page.Locator(".item-list li").First.ClickAsync(); await page.WaitForTimeoutAsync(800);

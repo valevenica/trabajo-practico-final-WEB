@@ -181,6 +181,8 @@ public sealed class FakeOrdenProduccionRepository : FakeRepository<OrdenProducci
 
     public Task<IReadOnlyList<OrdenProduccion>> ListByCreatedDescAsync()
         => Task.FromResult<IReadOnlyList<OrdenProduccion>>(Items.OrderByDescending(x => x.CreatedAt).ToArray());
+
+    public Task ActualizarConItemsAsync(OrdenProduccion orden) => Task.CompletedTask;
 }
 
 public sealed class FakeRecetaProductoItemRepository : FakeRepository<RecetaProductoItem>, IRecetaProductoItemRepository

@@ -205,15 +205,14 @@
         var productos = (await UnitOfWork.Productos.ListAsync()).ToDictionary(x => x.Id);
         var clientes = (await UnitOfWork.Clientes.ListAsync()).ToDictionary(x => x.Id, x => x.Nombre);
 
-        _filas = ordenes.Select(o =>
-        {
-            productos.TryGetValue(o.ProductoId, out var producto);
-            return new Fila(
-                o,
-                producto?.Nombre ?? "Producto eliminado",
-                o.ClienteId is { } c && clientes.TryGetValue(c, out var nombre) ? nombre : "Consumidor final",
-                (producto?.CostoFabricacionActual ?? 0m) * o.CantidadPlaneada);
-        }).ToList();
+        _filas = ordenes.Select(o => new Fila(
+            o,
+            string.Join(", ", o.Items.Select(i => productos.TryGetValue(i.ProductoId, out var p)
+                ? (o.Items.Count > 1 ? $"{p.Nombre} ×{i.Cantidad:0.##}" : p.Nombre)
+                : "Producto eliminado")),
+            o.ClienteId is { } c && clientes.TryGetValue(c, out var nombre) ? nombre : "Consumidor final",
+            o.Items.Sum(i => (productos.TryGetValue(i.ProductoId, out var p) ? p.CostoFabricacionActual : 0m) * i.Cantidad)))
+            .ToList();
     }
 
     private Task CambiarPeriodoAsync(ChangeEventArgs e)

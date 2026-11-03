@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using StockManufactura.Domain.Entities;
 using Xunit;
 
@@ -55,5 +55,40 @@ public class ProductionOrderTests
         Aplicar(orden.MarcarEnProgreso);
 
         Assert.Equal(15m, stock);
+    }
+
+    [Fact]
+    public void OrdenConVariosProductos_AgrupaRepetidosYSumaElTotal()
+    {
+        var vela = Guid.NewGuid();
+        var difusor = Guid.NewGuid();
+
+        var orden = new OrdenProduccion("OP-003", new[] { (vela, 2m), (difusor, 3m), (vela, 1m) }, string.Empty);
+
+        Assert.Equal(2, orden.Items.Count);
+        Assert.Equal(3m, Assert.Single(orden.Items, x => x.ProductoId == vela).Cantidad);
+        Assert.Equal(6m, orden.CantidadPlaneada);
+        Assert.All(orden.Items, x => Assert.Equal(orden.Id, x.OrdenProduccionId));
+    }
+
+    [Fact]
+    public void OrdenSinProductosOConCantidadCero_SeRechaza()
+    {
+        Assert.Throws<InvalidOperationException>(() => new OrdenProduccion("OP-004", Array.Empty<(Guid, decimal)>(), string.Empty));
+        Assert.Throws<InvalidOperationException>(() => new OrdenProduccion("OP-005", Guid.NewGuid(), 0m, string.Empty));
+    }
+
+    [Fact]
+    public void ReemplazarProductos_SoloMientrasEstaEnEspera()
+    {
+        var orden = new OrdenProduccion("OP-006", Guid.NewGuid(), 1m, string.Empty);
+        var nuevo = Guid.NewGuid();
+
+        orden.Planificar();
+        orden.ReemplazarItems(new[] { (nuevo, 4m) });
+        Assert.Equal(nuevo, Assert.Single(orden.Items).ProductoId);
+
+        orden.MarcarEnProgreso();
+        Assert.Throws<InvalidOperationException>(() => orden.ReemplazarItems(new[] { (nuevo, 1m) }));
     }
 }

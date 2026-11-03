@@ -12,6 +12,8 @@
         <button class="tab @(_pestania == Pestania.Usuarios ? "active" : "")" @onclick="() => CambiarPestania(Pestania.Usuarios)">Usuarios</button>
         <button class="tab @(_pestania == Pestania.Roles ? "active" : "")" @onclick="() => CambiarPestania(Pestania.Roles)">Roles y permisos</button>
         <button class="tab @(_pestania == Pestania.Correo ? "active" : "")" @onclick="() => CambiarPestania(Pestania.Correo)">Correo de recuperación</button>
+        @* Los datos propios y el cambio de contraseña viven en «Mi cuenta», accesible para cualquier rol. *@
+        <a class="tab" href="cuenta">Mi perfil</a>
     </div>
 
     @if (_pestania == Pestania.Usuarios)

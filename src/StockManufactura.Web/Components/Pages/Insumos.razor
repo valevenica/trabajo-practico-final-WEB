@@ -19,23 +19,19 @@
             <section class="card list-panel">
                 <input class="search" placeholder="Buscar por código o nombre" @bind="_busqueda" @bind:event="oninput" />
                 <label class="check"><input type="checkbox" @bind="_mostrarInactivos" /> Mostrar inactivos</label>
-                <div class="table-wrap">
-                    <table class="table selectable">
-                        <thead><tr><th>Código</th><th>Nombre</th><th class="num">Precio</th><th>Moneda</th><th class="num">Stock</th></tr></thead>
-                        <tbody>
-                            @foreach (var r in InsumosFiltrados)
-                            {
-                                <tr class="@(r.Id == _seleccionado?.Id ? "selected" : "") @(r.Activo ? "" : "inactive")" @onclick="() => Seleccionar(r)">
-                                    <td class="code">@r.Codigo</td>
-                                    <td>@r.Nombre @if (!r.Activo) { <span class="badge badge-inactivo">Inactivo</span> }</td>
-                                    <td class="num">@r.Precio.ToString("0.00")</td>
-                                    <td>@r.Moneda</td>
-                                    <td class="num">@r.StockActual.ToString("0.#")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                <ul class="item-list">
+                    @foreach (var r in InsumosFiltrados)
+                    {
+                        <li class="@(r.Id == _seleccionado?.Id ? "selected" : "") @(r.Activo ? "" : "inactive")" @onclick="() => Seleccionar(r)">
+                            <div class="item-title">@r.Nombre @if (!r.Activo) { <span class="badge badge-inactivo">Inactivo</span> }</div>
+                            <div class="item-sub">@r.Codigo · @r.Precio.ToString("0.00") @r.Moneda · Stock @r.StockActual.ToString("0.##") @r.UnidadMedida</div>
+                        </li>
+                    }
+                    @if (!InsumosFiltrados.Any())
+                    {
+                        <li class="muted">Sin resultados.</li>
+                    }
+                </ul>
             </section>
 
             <section>

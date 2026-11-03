@@ -75,6 +75,7 @@ namespace StockManufactura.Web.Infrastructure
             services.AddTransient<ICatalogActivationService, CatalogActivationService>();
             services.AddTransient<IStockIntakeService, StockIntakeService>();
             services.AddTransient<IResourcePriceImportService, ClosedXmlResourcePriceImportService>();
+            services.AddSingleton<IFacturaPdfReader, PdfPigFacturaReader>();
             services.AddTransient<IUserManagementService, UserManagementService>();
             services.AddSingleton<PasswordRecoveryCodeStore>();
             services.AddSingleton<IEmailSettingsStore, JsonEmailSettingsStore>();
