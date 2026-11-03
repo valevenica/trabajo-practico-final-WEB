@@ -211,11 +211,12 @@ await Check("insumos especiales: tramos y simulación", async () =>
 await Check("ingreso de stock", async () =>
 {
     await page.GotoAsync(B + "stock/ingresos");
-    var select = page.Locator("select");
+    // El desplegable de la carga manual; el otro es el del proveedor de la factura.
+    var select = page.Locator(".inline-form select");
     await select.WaitForAsync();
     var valor = await select.Locator("optgroup[label=Insumos] option").First.GetAttributeAsync("value");
     await select.SelectOptionAsync(valor!);
-    await page.Locator("input[type=number]").FillAsync("5");
+    await page.Locator(".inline-form input[type=number]").FillAsync("5");
     await page.GetByRole(AriaRole.Button, new() { Name = "+ Agregar a la lista" }).ClickAsync();
     await page.GetByRole(AriaRole.Button, new() { Name = "Registrar ingreso" }).ClickAsync();
     await page.Locator(".status", new() { HasText = "registrado correctamente" }).WaitForAsync();
@@ -225,7 +226,8 @@ await Check("órdenes: crear y planificar", async () =>
 {
     await page.GotoAsync(B + "ordenes");
     await page.Locator(".kpi").First.WaitForAsync();
-    await page.Locator("input[type=number]").First.FillAsync("1");
+    await page.Locator(".inline-form input[type=number]").FillAsync("1");
+    await page.GetByRole(AriaRole.Button, new() { Name = "+ Agregar producto" }).ClickAsync();
     await page.GetByRole(AriaRole.Button, new() { Name = "Crear orden" }).ClickAsync();
     await page.Locator(".status").WaitForAsync();
     await page.GetByRole(AriaRole.Button, new() { Name = "Planificar" }).ClickAsync();
@@ -258,7 +260,7 @@ await Check("carga masiva de precios con vista previa", async () =>
     await page.SelectOptionAsync("select", (await proveedores.First.GetAttributeAsync("value"))!);
     await page.WaitForTimeoutAsync(400);
     await page.SetInputFilesAsync("input[type=file]", Path.Combine(AppContext.BaseDirectory, "precios.xlsx"));
-    await page.Locator("text=Vista previa").WaitForAsync();
+    await page.Locator("h2:has-text('Vista previa')").WaitForAsync(); await page.WaitForTimeoutAsync(500);
     Console.WriteLine($"  {await Status()}");
     await SinError();
 });

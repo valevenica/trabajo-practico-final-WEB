@@ -95,9 +95,10 @@ public static class CasosFuncionales
         async Task<IPage> OrdenPlanificada(IPage p, string producto, string cantidad, string? cliente = null)
         {
             await Ir(p, b, "ordenes");
-            await p.SelectOptionAsync(".form-grid select >> nth=0", new SelectOptionValue { Label = producto });
-            await p.Locator(".form-grid input[type=number]").FillAsync(cantidad);
-            if (cliente is not null) await p.SelectOptionAsync(".form-grid select >> nth=1", new SelectOptionValue { Label = cliente });
+            await p.SelectOptionAsync(".inline-form select", new SelectOptionValue { Label = producto });
+            await p.Locator(".inline-form input[type=number]").FillAsync(cantidad);
+            await p.ClickAsync("button:has-text('+ Agregar producto')"); await p.WaitForTimeoutAsync(400);
+            if (cliente is not null) await p.SelectOptionAsync(".form-grid select", new SelectOptionValue { Label = cliente });
             await p.ClickAsync("button:has-text('Crear orden')"); await p.WaitForTimeoutAsync(1300);
             await p.ClickAsync("button:has-text('Planificar')"); await p.WaitForTimeoutAsync(1000);
             return p;
@@ -298,7 +299,7 @@ public static class CasosFuncionales
             await Ir(admin, b, "insumos/precios");
             await admin.SelectOptionAsync("select", new SelectOptionValue { Label = "Botanica Aurora" }); await admin.WaitForTimeoutAsync(400);
             await admin.SetInputFilesAsync("input[type=file]", Path.Combine(AppContext.BaseDirectory, "precios.xlsx"));
-            await admin.Locator("text=Vista previa").WaitForAsync();
+            await admin.Locator("h2:has-text('Vista previa')").WaitForAsync(); await admin.WaitForTimeoutAsync(500);
             var estados = await admin.Locator("tbody tr td:nth-child(6)").AllInnerTextsAsync();
             Exigir(estados.Any(e => e.Contains("Listo") || e.Contains("Sin cambios")), "ninguna fila se asoció por código: " + string.Join(", ", estados));
             if (estados.Any(e => e.Contains("Listo")))
@@ -358,7 +359,7 @@ public static class CasosFuncionales
             await Ir(admin, b, "insumos/precios");
             await admin.SelectOptionAsync("select", new SelectOptionValue { Label = "Botanica Aurora" }); await admin.WaitForTimeoutAsync(400);
             await admin.SetInputFilesAsync("input[type=file]", preciosUsd);
-            await admin.Locator("text=Vista previa").WaitForAsync();
+            await admin.Locator("h2:has-text('Vista previa')").WaitForAsync(); await admin.WaitForTimeoutAsync(500);
             await admin.ClickAsync("text=Confirmar importación"); await admin.WaitForTimeoutAsync(1500);
             await SeleccionarProducto(admin, "Set de regalo");
             var despues = Num(await admin.Locator("tbody tr", new() { HasTextString = "Pigmento importado" }).Locator("td").Nth(4).InnerTextAsync());
@@ -393,7 +394,7 @@ public static class CasosFuncionales
             await admin.ClickAsync("button:has-text('Iniciar')"); await admin.WaitForTimeoutAsync(1200);
             Exigir(await StockProducto(admin, "Vela de soja Naranja") == stock - 2, "no descontó al iniciar");
             await Ir(admin, b, "ordenes");
-            await admin.Locator("tbody tr").First.ClickAsync(); await admin.WaitForTimeoutAsync(600);
+            await admin.Locator(".table.selectable tbody tr").First.ClickAsync(); await admin.WaitForTimeoutAsync(600);
             await admin.ClickAsync("button:has-text('Cancelar orden')"); await admin.WaitForTimeoutAsync(1200);
             Exigir(await StockProducto(admin, "Vela de soja Naranja") == stock, "no reintegró el stock");
         });
@@ -401,11 +402,11 @@ public static class CasosFuncionales
         await Caso("F28", "Alta de un pedido con cliente y asignación de un cliente a un pedido existente", async () =>
         {
             await OrdenPlanificada(admin, "Vela de soja Lavanda 220ml", "1", "Spa Lavanda");
-            Exigir((await admin.Locator("tbody tr").First.InnerTextAsync()).Contains("Spa Lavanda"), "el pedido no muestra el cliente");
+            Exigir((await admin.Locator(".table.selectable tbody tr").First.InnerTextAsync()).Contains("Spa Lavanda"), "el pedido no muestra el cliente");
             await OrdenPlanificada(admin, "Vela de soja Lavanda 220ml", "1");
-            Exigir((await admin.Locator("tbody tr").First.InnerTextAsync()).Contains("Consumidor final"), "sin cliente debería figurar Consumidor final");
-            await admin.Locator("tbody tr").First.ClickAsync(); await admin.WaitForTimeoutAsync(600);
-            await admin.SelectOptionAsync(".form-grid select >> nth=1", new SelectOptionValue { Label = "Almacén Natural Rosario" });
+            Exigir((await admin.Locator(".table.selectable tbody tr").First.InnerTextAsync()).Contains("Consumidor final"), "sin cliente debería figurar Consumidor final");
+            await admin.Locator(".table.selectable tbody tr").First.ClickAsync(); await admin.WaitForTimeoutAsync(600);
+            await admin.SelectOptionAsync(".form-grid select", new SelectOptionValue { Label = "Almacén Natural Rosario" });
             await admin.ClickAsync("button:has-text('Asignar cliente')"); await admin.WaitForTimeoutAsync(1200);
             Exigir((await Estado(admin)).Contains("asignado al cliente"), await Estado(admin));
             await Ir(admin, b, "");
