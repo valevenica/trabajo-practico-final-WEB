@@ -17,6 +17,8 @@ namespace StockManufactura.Infrastructure.Db.Configurations
             builder.Property(x => x.Observaciones).HasMaxLength(2000);
             builder.Property(x => x.FechaInicio);
             builder.Property(x => x.FechaFin);
+            builder.Property(x => x.EstadoAntesDeCancelar).HasConversion<int?>();
+            builder.Ignore(x => x.EstadoParaRestaurar);
 
             builder.Property(x => x.CreatedAt).IsRequired();
             builder.Property(x => x.UpdatedAt).IsRequired();

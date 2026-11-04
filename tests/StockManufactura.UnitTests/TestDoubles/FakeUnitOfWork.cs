@@ -50,6 +50,8 @@ public sealed class FakeUnitOfWork : IUnitOfWork
     public IResourcePriceHistoryRepository ResourcePriceHistory => ResourcePriceHistoryFake;
     public IProductoRepository Productos => ProductosFake;
     public IOrdenProduccionRepository OrdenesProduccion => OrdenesProduccionFake;
+    public FakeOrdenCambioEstadoRepository CambiosEstadoOrdenFake { get; } = new();
+    public IOrdenCambioEstadoRepository CambiosEstadoOrden => CambiosEstadoOrdenFake;
     public IRecetaProductoItemRepository RecetaProductoItems => RecetaProductoItemsFake;
     public IRecursoProveedorRepository RecursoProveedores => RecursoProveedoresFake;
     public IRecursoTramoPrecioRepository RecursoTramosPrecio => RecursoTramosPrecioFake;
@@ -183,6 +185,12 @@ public sealed class FakeOrdenProduccionRepository : FakeRepository<OrdenProducci
         => Task.FromResult<IReadOnlyList<OrdenProduccion>>(Items.OrderByDescending(x => x.CreatedAt).ToArray());
 
     public Task ActualizarConItemsAsync(OrdenProduccion orden) => Task.CompletedTask;
+}
+
+public sealed class FakeOrdenCambioEstadoRepository : FakeRepository<OrdenProduccionCambioEstado>, IOrdenCambioEstadoRepository
+{
+    public Task<IReadOnlyList<OrdenProduccionCambioEstado>> ListByOrdenAsync(Guid ordenProduccionId)
+        => Task.FromResult<IReadOnlyList<OrdenProduccionCambioEstado>>(Items.Where(x => x.OrdenProduccionId == ordenProduccionId).OrderBy(x => x.Fecha).ToArray());
 }
 
 public sealed class FakeRecetaProductoItemRepository : FakeRepository<RecetaProductoItem>, IRecetaProductoItemRepository

@@ -337,6 +337,9 @@ namespace StockManufactura.Infrastructure.Migrations
                     b.Property<int>("Estado")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("EstadoAntesDeCancelar")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime?>("FechaFin")
                         .HasColumnType("TEXT");
 
@@ -364,6 +367,47 @@ namespace StockManufactura.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("OrdenesProduccion", (string)null);
+                });
+
+            modelBuilder.Entity("StockManufactura.Domain.Entities.OrdenProduccionCambioEstado", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("EstadoAnterior")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("EstadoNuevo")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<Guid>("OrdenProduccionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Usuario")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrdenProduccionId", "Fecha");
+
+                    b.ToTable("OrdenesProduccionCambiosEstado", (string)null);
                 });
 
             modelBuilder.Entity("StockManufactura.Domain.Entities.OrdenProduccionItem", b =>
@@ -1100,6 +1144,15 @@ namespace StockManufactura.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("ClienteId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("StockManufactura.Domain.Entities.OrdenProduccionCambioEstado", b =>
+                {
+                    b.HasOne("StockManufactura.Domain.Entities.OrdenProduccion", null)
+                        .WithMany()
+                        .HasForeignKey("OrdenProduccionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("StockManufactura.Domain.Entities.OrdenProduccionItem", b =>

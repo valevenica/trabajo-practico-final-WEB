@@ -250,6 +250,7 @@
             var estadoAnterior = orden.Estado;
             transicion(orden);
             await OrdenStock.AplicarMovimientoAsync(UnitOfWork, estadoAnterior, orden);
+            await OrdenHistorial.RegistrarAsync(UnitOfWork, orden, estadoAnterior, Session.Actor);
             UnitOfWork.OrdenesProduccion.Update(orden);
             await UnitOfWork.SaveChangesAsync();
             await Servicio<IAuditLogService>().RegisterAsync(new AuditLog

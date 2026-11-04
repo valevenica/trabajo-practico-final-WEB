@@ -10,6 +10,7 @@
         <div class="kpi"><span class="kpi-label">En proceso</span><span class="kpi-value">@_ordenes.Count(x => x.Estado == EstadoOrdenProduccion.EnProceso)</span></div>
         <div class="kpi"><span class="kpi-label">Finalizadas este mes</span><span class="kpi-value">@_ordenes.Count(x => x.Estado == EstadoOrdenProduccion.Finalizada && EsMesActual(x.FechaFin ?? x.UpdatedAt))</span></div>
         <div class="kpi"><span class="kpi-label">En espera</span><span class="kpi-value">@_ordenes.Count(x => EnEspera(x.Estado))</span></div>
+        <div class="kpi" title="Promedio del tiempo que las órdenes finalizadas estuvieron en proceso (@_ordenesConTiempo órdenes)"><span class="kpi-label">Tiempo promedio de armado</span><span class="kpi-value">@(_tiempoPromedioArmado is { } t ? OrdenHistorial.FormatearDuracion(t) : "—")</span></div>
         <div class="kpi @(_stockCritico > 0 ? "kpi-alert" : "")"><span class="kpi-label">Stock crítico</span><span class="kpi-value">@_stockCritico</span></div>
     </div>
 
@@ -83,17 +84,70 @@
                     {
                         <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(GuardarLineasAsync)">Guardar productos</button>
                     }
-                    <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(BorradorAsync)">Borrador</button>
-                    <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(PlanificarAsync)">Planificar</button>
-                    <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(IniciarAsync)">Iniciar</button>
-                    <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(FinalizarAsync)">Finalizar</button>
-                    <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(CancelarAsync)">Cancelar orden</button>
-                    <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(AsignarClienteAsync)">Asignar cliente</button>
-                    <button class="btn btn-secondary danger" disabled="@Ocupado" @onclick="() => EjecutarAsync(EliminarAsync)">Eliminar</button>
+                    @if (_seleccionada.Estado == EstadoOrdenProduccion.Finalizada)
+                    {
+                        @* Una orden finalizada forma parte del historial: solo puede reabrirse para seguir en proceso. *@
+                        <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(ReabrirAsync)">Reabrir (volver a en proceso)</button>
+                    }
+                    else if (_seleccionada.Estado == EstadoOrdenProduccion.Cancelada)
+                    {
+                        <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(RestaurarAsync)">Restaurar a «@TextoEstado(_seleccionada.EstadoParaRestaurar)»</button>
+                        <button class="btn btn-secondary danger" disabled="@Ocupado" @onclick="() => EjecutarAsync(EliminarAsync)">Eliminar</button>
+                    }
+                    else
+                    {
+                        @if (_seleccionada.Estado != EstadoOrdenProduccion.Borrador)
+                        {
+                            <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(BorradorAsync)">Borrador</button>
+                        }
+                        @if (_seleccionada.Estado != EstadoOrdenProduccion.Planificada)
+                        {
+                            <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(PlanificarAsync)">Planificar</button>
+                        }
+                        @if (_seleccionada.Estado != EstadoOrdenProduccion.EnProceso)
+                        {
+                            <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(IniciarAsync)">Iniciar</button>
+                        }
+                        <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(FinalizarAsync)">Finalizar</button>
+                        <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(CancelarAsync)">Cancelar orden</button>
+                        <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(AsignarClienteAsync)">Asignar cliente</button>
+                        @if (_seleccionada.Estado != EstadoOrdenProduccion.EnProceso)
+                        {
+                            <button class="btn btn-secondary danger" disabled="@Ocupado" @onclick="() => EjecutarAsync(EliminarAsync)">Eliminar</button>
+                        }
+                    }
                     <button class="btn btn-link" @onclick="NuevaOrden">Nueva orden</button>
                 }
             </div>
             <StatusBar Mensaje="@StatusMessage" />
+
+            @if (_seleccionada is not null)
+            {
+                <h3>Historial de estados</h3>
+                @if (TiempoDeArmadoSeleccionada is { } armado)
+                {
+                    <p class="muted">Tiempo de armado: @OrdenHistorial.FormatearDuracion(armado)</p>
+                }
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Fecha</th><th>Cambio</th><th>Usuario</th></tr></thead>
+                        <tbody>
+                            @foreach (var c in HistorialSeleccionada.OrderByDescending(x => x.Fecha))
+                            {
+                                <tr>
+                                    <td>@c.Fecha.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>@(c.EstadoAnterior is { } previo ? $"{TextoEstado(previo)} → " : "Alta → ")<EstadoOrdenBadge Estado="c.EstadoNuevo" /></td>
+                                    <td>@c.Usuario</td>
+                                </tr>
+                            }
+                            @if (HistorialSeleccionada.Count == 0)
+                            {
+                                <tr><td colspan="3" class="muted">Sin cambios registrados: la orden es anterior al historial (creada el @_seleccionada.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")).</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
         </section>
 
         <section class="card">
@@ -132,6 +186,23 @@
     private List<OrdenProduccion> _ordenes = new();
     private OrdenProduccion? _seleccionada;
     private int _stockCritico;
+    private ILookup<Guid, OrdenProduccionCambioEstado> _historial = Array.Empty<OrdenProduccionCambioEstado>().ToLookup(x => x.OrdenProduccionId);
+    private TimeSpan? _tiempoPromedioArmado;
+    private int _ordenesConTiempo;
+
+    private IReadOnlyCollection<OrdenProduccionCambioEstado> HistorialDe(Guid ordenId) => _historial[ordenId].ToList();
+    private IReadOnlyCollection<OrdenProduccionCambioEstado> HistorialSeleccionada => _seleccionada is null ? Array.Empty<OrdenProduccionCambioEstado>() : HistorialDe(_seleccionada.Id);
+    private TimeSpan? TiempoDeArmadoSeleccionada => _seleccionada is null ? null : OrdenHistorial.TiempoDeArmado(_seleccionada, HistorialSeleccionada);
+
+    private static string TextoEstado(EstadoOrdenProduccion e) => e switch
+    {
+        EstadoOrdenProduccion.Borrador => "Borrador",
+        EstadoOrdenProduccion.Planificada => "Planificada",
+        EstadoOrdenProduccion.EnProceso => "En proceso",
+        EstadoOrdenProduccion.Finalizada => "Finalizada",
+        EstadoOrdenProduccion.Cancelada => "Cancelada",
+        _ => e.ToString()
+    };
 
     private string _codigo = string.Empty;
     private Guid _productoId;
@@ -157,6 +228,15 @@
         _clientes = (await UnitOfWork.Clientes.ListAsync()).OrderBy(x => x.Nombre).ToList();
         _ordenes = (await UnitOfWork.OrdenesProduccion.ListByCreatedDescAsync()).ToList();
         _stockCritico = (await Servicio<IShortageService>().GetShortagesAsync()).TotalCount;
+
+        _historial = (await UnitOfWork.CambiosEstadoOrden.ListAsync()).ToLookup(x => x.OrdenProduccionId);
+        var tiempos = _ordenes
+            .Select(o => OrdenHistorial.TiempoDeArmado(o, HistorialDe(o.Id)))
+            .Where(t => t.HasValue)
+            .Select(t => t!.Value)
+            .ToList();
+        _ordenesConTiempo = tiempos.Count;
+        _tiempoPromedioArmado = tiempos.Count > 0 ? TimeSpan.FromTicks((long)tiempos.Average(t => t.Ticks)) : null;
 
         if (_seleccionada is not null)
         {
@@ -236,6 +316,7 @@
 
         var orden = new OrdenProduccion(codigo, _lineas.Select(l => (l.ProductoId, l.Cantidad)), _observaciones.Trim(), ClienteElegido);
         await UnitOfWork.OrdenesProduccion.AddAsync(orden);
+        await OrdenHistorial.RegistrarAsync(UnitOfWork, orden, null, Session.Actor);
         await UnitOfWork.SaveChangesAsync();
         await RegistrarAuditoriaAsync("Crear", orden, "Alta de orden de producción.");
 
@@ -334,6 +415,7 @@
 
             transicion(orden);
             await OrdenStock.AplicarMovimientoAsync(UnitOfWork, estadoAnterior, orden);
+            await OrdenHistorial.RegistrarAsync(UnitOfWork, orden, estadoAnterior, Session.Actor);
             UnitOfWork.OrdenesProduccion.Update(orden);
             await UnitOfWork.SaveChangesAsync();
             await RegistrarAuditoriaAsync(accion, orden, mensaje);
@@ -355,6 +437,13 @@
     private Task PlanificarAsync() => TransicionAsync(o => o.Planificar(), "Planificada", "Orden planificada.");
     private Task IniciarAsync() => TransicionAsync(o => o.MarcarEnProgreso(), "EnProceso", "Orden en proceso.");
     private Task FinalizarAsync() => TransicionAsync(o => o.Completar(), "Finalizada", "Orden finalizada.");
+    private Task ReabrirAsync() => TransicionAsync(o => o.Reabrir(), "Reabrir", "Orden reabierta: vuelve a en proceso.");
+
+    private Task RestaurarAsync()
+    {
+        var destino = _seleccionada is null ? string.Empty : TextoEstado(_seleccionada.EstadoParaRestaurar);
+        return TransicionAsync(o => o.RestaurarCancelada(), "Restaurar", $"Orden restaurada a «{destino}».");
+    }
 
     private Task CancelarAsync()
     {

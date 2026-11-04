@@ -41,6 +41,16 @@ namespace StockManufactura.Domain.Entities
         public DateTime? FechaInicio { get; private set; }
         public DateTime? FechaFin { get; private set; }
 
+        /// <summary>Estado que tenía la orden al cancelarse; es al que vuelve si se restaura.</summary>
+        public EstadoOrdenProduccion? EstadoAntesDeCancelar { get; private set; }
+
+        /// <summary>
+        /// Estado al que vuelve una orden cancelada al restaurarla. Las órdenes canceladas antes de que se guardara ese
+        /// dato vuelven a en proceso si ya se habían iniciado, o a borrador si no.
+        /// </summary>
+        public EstadoOrdenProduccion EstadoParaRestaurar => EstadoAntesDeCancelar
+            ?? (FechaInicio.HasValue ? EstadoOrdenProduccion.EnProceso : EstadoOrdenProduccion.Borrador);
+
         public void AsignarCliente(Guid? clienteId)
         {
             if (Estado == EstadoOrdenProduccion.Finalizada || Estado == EstadoOrdenProduccion.Cancelada)
@@ -56,7 +66,7 @@ namespace StockManufactura.Domain.Entities
         {
             if (Estado == EstadoOrdenProduccion.Finalizada || Estado == EstadoOrdenProduccion.Cancelada)
             {
-                throw new InvalidOperationException("No se puede planificar una orden finalizada o cancelada.");
+                throw new InvalidOperationException("No se puede planificar una orden finalizada o cancelada. Una finalizada se reabre y una cancelada se restaura.");
             }
 
             Estado = EstadoOrdenProduccion.Planificada;
@@ -67,12 +77,12 @@ namespace StockManufactura.Domain.Entities
         {
             if (Estado == EstadoOrdenProduccion.Finalizada)
             {
-                throw new InvalidOperationException("No se puede reabrir una orden completada.");
+                throw new InvalidOperationException("Una orden finalizada solo puede reabrirse para volver a en proceso.");
             }
 
             if (Estado == EstadoOrdenProduccion.Cancelada)
             {
-                throw new InvalidOperationException("No se puede iniciar una orden cancelada.");
+                throw new InvalidOperationException("Una orden cancelada solo puede restaurarse al estado que tenía antes.");
             }
 
             Estado = EstadoOrdenProduccion.EnProceso;
@@ -125,6 +135,12 @@ namespace StockManufactura.Domain.Entities
                 throw new InvalidOperationException("No se puede cancelar una orden finalizada.");
             }
 
+            if (Estado == EstadoOrdenProduccion.Cancelada)
+            {
+                throw new InvalidOperationException("La orden ya está cancelada.");
+            }
+
+            EstadoAntesDeCancelar = Estado;
             Estado = EstadoOrdenProduccion.Cancelada;
             if (!string.IsNullOrWhiteSpace(motivo))
             {
@@ -141,12 +157,54 @@ namespace StockManufactura.Domain.Entities
         {
             if (Estado == EstadoOrdenProduccion.Finalizada)
             {
-                throw new InvalidOperationException("No se puede volver a borrador una orden finalizada.");
+                throw new InvalidOperationException("No se puede volver a borrador una orden finalizada; solo puede reabrirse para volver a en proceso.");
+            }
+
+            if (Estado == EstadoOrdenProduccion.Cancelada)
+            {
+                throw new InvalidOperationException("Una orden cancelada solo puede restaurarse al estado que tenía antes.");
             }
 
             Estado = EstadoOrdenProduccion.Borrador;
             FechaInicio = null;
             FechaFin = null;
+            UpdateTimestamp();
+        }
+
+        /// <summary>
+        /// Reabre una orden finalizada: vuelve a en proceso (sin mover stock, que ya estaba descontado) y se borra la fecha
+        /// de fin hasta que se vuelva a finalizar.
+        /// </summary>
+        public void Reabrir()
+        {
+            if (Estado != EstadoOrdenProduccion.Finalizada)
+            {
+                throw new InvalidOperationException("Solo se puede reabrir una orden finalizada.");
+            }
+
+            Estado = EstadoOrdenProduccion.EnProceso;
+            FechaInicio ??= DateTime.UtcNow;
+            FechaFin = null;
+            UpdateTimestamp();
+        }
+
+        /// <summary>Devuelve una orden cancelada al estado que tenía antes de cancelarse.</summary>
+        public void RestaurarCancelada()
+        {
+            if (Estado != EstadoOrdenProduccion.Cancelada)
+            {
+                throw new InvalidOperationException("Solo se puede restaurar una orden cancelada.");
+            }
+
+            var destino = EstadoParaRestaurar;
+            Estado = destino;
+            EstadoAntesDeCancelar = null;
+            FechaFin = null;
+            if (destino == EstadoOrdenProduccion.EnProceso)
+            {
+                FechaInicio ??= DateTime.UtcNow;
+            }
+
             UpdateTimestamp();
         }
 
@@ -199,6 +257,12 @@ namespace StockManufactura.Domain.Entities
                 estado == EstadoOrdenProduccion.Borrador || estado == EstadoOrdenProduccion.Planificada;
 
             if (enEspera(anterior) && (nuevo == EstadoOrdenProduccion.EnProceso || nuevo == EstadoOrdenProduccion.Finalizada))
+            {
+                return -1;
+            }
+
+            // Una orden cancelada que se restaura a en proceso vuelve a descontar lo que se reintegró al cancelarla.
+            if (anterior == EstadoOrdenProduccion.Cancelada && nuevo == EstadoOrdenProduccion.EnProceso)
             {
                 return -1;
             }
