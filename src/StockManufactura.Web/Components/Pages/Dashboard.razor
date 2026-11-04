@@ -70,6 +70,15 @@
                         </details>
                     </div>
                     <div>
+                        <label>Filtrar por fecha</label>
+                        <select @bind="_fechaFiltro" title="Mes de creación del pedido">
+                            @foreach (var p in _mesesPedidos)
+                            {
+                                <option value="@p.Clave">@p.Etiqueta</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
                         <label>Ordenar tabla</label>
                         <select @bind="_orden">
                             @foreach (var o in OpcionesOrden) { <option>@o</option> }
@@ -145,13 +154,16 @@
     private string _orden = OpcionesOrden[0];
     private string _busqueda = string.Empty;
 
-    // Las canceladas arrancan ocultas.
+    // Filtro por fecha del listado (mes de creación), independiente del período de los indicadores.
+    private IReadOnlyList<Periodo> _mesesPedidos = Periodos.MesesDe(Array.Empty<DateTime>(), "Todas las fechas");
+    private string _fechaFiltro = "todo";
+
     private readonly Dictionary<string, bool> _estados = new()
     {
         ["En espera"] = true,
         ["En proceso"] = true,
         ["Finalizada"] = true,
-        ["Cancelada"] = false,
+        ["Cancelada"] = true,
     };
 
     private IUnitOfWork UnitOfWork => Servicio<IUnitOfWork>();
@@ -179,12 +191,11 @@
     {
         get
         {
-            var periodo = PeriodoElegido;
+            var mes = _mesesPedidos.FirstOrDefault(p => p.Clave == _fechaFiltro) ?? _mesesPedidos[0];
             var activos = _estados.Where(x => x.Value).Select(x => x.Key).ToHashSet();
             var filas = _filas.Where(f =>
-                // Los pedidos abiertos son trabajo pendiente y se ven en cualquier período; el período solo acota los
-                // finalizados o cancelados, por el mes en que se cerraron (el mismo criterio que las ventas del mes).
-                (f.Abierta || periodo.Year is null || (f.FechaPeriodo.Year == periodo.Year && f.FechaPeriodo.Month == periodo.Month))
+                // Fecha y estado se combinan: dejando uno en "Todas/Todos" se filtra solo por el otro.
+                (mes.Year is null || (f.FechaLocal.Year == mes.Year && f.FechaLocal.Month == mes.Month))
                 && (activos.Count == 0 || activos.Contains(f.Estado))
                 && (string.IsNullOrWhiteSpace(_busqueda)
                     || f.Orden.Codigo.Contains(_busqueda, StringComparison.OrdinalIgnoreCase)
@@ -223,6 +234,13 @@
             o.ClienteId is { } c && clientes.TryGetValue(c, out var nombre) ? nombre : "Consumidor final",
             o.Items.Sum(i => (productos.TryGetValue(i.ProductoId, out var p) ? p.CostoFabricacionActual : 0m) * i.Cantidad)))
             .ToList();
+
+        // Solo los meses que tienen pedidos, para llegar a uno pendiente o en curso de cualquier mes.
+        _mesesPedidos = Periodos.MesesDe(_filas.Select(f => f.FechaLocal), "Todas las fechas");
+        if (_mesesPedidos.All(p => p.Clave != _fechaFiltro))
+        {
+            _fechaFiltro = "todo";
+        }
     }
 
     private Task CambiarPeriodoAsync(ChangeEventArgs e)
@@ -328,7 +346,8 @@
     {
         public bool Abierta => Orden.Estado is not (EstadoOrdenProduccion.Finalizada or EstadoOrdenProduccion.Cancelada);
 
-        public DateTime FechaPeriodo => Abierta ? Orden.CreatedAt : Orden.FechaFin ?? Orden.CreatedAt;
+        /// <summary>Fecha de creación en hora local: la que muestra la columna Fecha y la que usa el filtro por fecha.</summary>
+        public DateTime FechaLocal => Orden.CreatedAt.ToLocalTime();
 
         public string Estado => Orden.Estado switch
         {
