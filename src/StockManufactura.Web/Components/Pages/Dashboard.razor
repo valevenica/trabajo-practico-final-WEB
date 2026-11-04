@@ -105,6 +105,16 @@
                                                 <button class="btn btn-secondary btn-icon" disabled="@Ocupado" title="Cancelar orden"
                                                         @onclick="() => EjecutarAsync(() => CancelarAsync(f.Orden))">✕</button>
                                             }
+                                            else if (f.Orden.Estado == EstadoOrdenProduccion.Finalizada)
+                                            {
+                                                <button class="btn btn-secondary btn-icon" disabled="@Ocupado" title="Reabrir (volver a en proceso)"
+                                                        @onclick="() => EjecutarAsync(() => ReabrirAsync(f.Orden))">↺</button>
+                                            }
+                                            else if (f.Orden.Estado == EstadoOrdenProduccion.Cancelada)
+                                            {
+                                                <button class="btn btn-secondary btn-icon" disabled="@Ocupado" title="Restaurar al estado anterior"
+                                                        @onclick="() => EjecutarAsync(() => RestaurarAsync(f.Orden))">↺</button>
+                                            }
                                         </td>
                                     }
                                 </tr>
@@ -241,6 +251,33 @@
         }
 
         await TransicionAsync(orden, o => o.Cancelar("Cancelada desde panel principal"), "Cancelada", $"Pedido {orden.Codigo} cancelado.");
+    }
+
+    private async Task ReabrirAsync(OrdenProduccion orden)
+    {
+        if (!await ConfirmarAsync($"¿Reabrir el pedido {orden.Codigo}? Vuelve a en proceso."))
+        {
+            return;
+        }
+
+        await TransicionAsync(orden, o => o.Reabrir(), "Reabrir", $"Pedido {orden.Codigo} reabierto: vuelve a en proceso.");
+    }
+
+    private async Task RestaurarAsync(OrdenProduccion orden)
+    {
+        var destino = orden.EstadoParaRestaurar switch
+        {
+            EstadoOrdenProduccion.Borrador => "Borrador",
+            EstadoOrdenProduccion.Planificada => "Planificada",
+            EstadoOrdenProduccion.EnProceso => "En proceso",
+            var otro => otro.ToString()
+        };
+        if (!await ConfirmarAsync($"¿Restaurar el pedido {orden.Codigo} a «{destino}»?"))
+        {
+            return;
+        }
+
+        await TransicionAsync(orden, o => o.RestaurarCancelada(), "Restaurar", $"Pedido {orden.Codigo} restaurado a «{destino}».");
     }
 
     private async Task TransicionAsync(OrdenProduccion orden, Action<OrdenProduccion> transicion, string accion, string mensaje)
