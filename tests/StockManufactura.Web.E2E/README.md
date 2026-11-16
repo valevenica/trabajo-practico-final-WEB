@@ -7,6 +7,10 @@ usuarios y roles, permisos por rol y la vista de celular. Son 40 controles.
 **Modifican datos** (crean usuarios y roles, restauran una copia, desactivan y reactivan registros). Usarlas solo con
 una base de prueba, nunca con la base real.
 
+El sistema pide las confirmaciones con un cuadro propio dentro de la página (no con ventanas del navegador).
+`DialogosPagina.cs` los responde solo: acepta las confirmaciones y, cuando se pide escribir una frase (restaurar una
+copia), escribe la indicada con `DialogosPagina.FraseAsync`; si no coincide, presiona «Volver».
+
 ## Requisitos
 
 - Google Chrome instalado (se usa el canal `chrome` de Playwright, no hace falta descargar navegadores).
@@ -36,7 +40,7 @@ Variables opcionales: `E2E_URL` (por defecto `http://localhost:5199/`) y `E2E_US
 El programa termina con código 0 si todos los controles pasan. Las capturas de las fallas y del menú de celular quedan
 en `bin/Debug/net10.0/capturas`.
 
-## Casos funcionales F1 a F33
+## Casos funcionales F1 a F33 y F54 a F58
 
 `dotnet run -- casos` ejecuta los casos de prueba funcionales del documento del proyecto sobre la base de demostración
 (`demo/StockManufactura-demo.db`), con el servidor iniciado con `Demo__Habilitada=true`. Al final restablece la base, así

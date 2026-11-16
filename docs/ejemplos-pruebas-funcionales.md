@@ -1,8 +1,8 @@
 # Ejemplos de pruebas funcionales (versión web)
 
-Datos de ejemplo, pasos y resultado esperado de los casos F1 a F53 de la sección Prueba del documento del proyecto.
+Datos de ejemplo, pasos y resultado esperado de los casos F1 a F58 de la sección Prueba del documento del proyecto.
 Todos se ejecutan sobre una copia de la base de demostración (`demo/StockManufactura-demo.db`), con el servidor
-iniciado con `Demo__Habilitada=true`. Los casos F1 a F33 están automatizados en `tests/StockManufactura.Web.E2E`
+iniciado con `Demo__Habilitada=true`. Los casos F1 a F33 y F54 a F58 están automatizados en `tests/StockManufactura.Web.E2E`
 (`dotnet run -- casos`); los F34 a F46, en la suite de extremo a extremo y en `tests/StockManufactura.Web.Tests`.
 
 ## Datos de la base de demostración
@@ -77,11 +77,14 @@ Recursos auxiliares para los casos que dependen de servicios externos:
 | Caso | Datos y pasos | Resultado esperado |
 |---|---|---|
 | F8 | Crear y planificar una orden de «Vela de soja Naranja cítrica 220ml» por más unidades que su stock; presionar Iniciar. | Se informa «Faltan…» y no se descuenta stock. |
-| F9 | Crear una orden de 2 unidades de la misma vela con stock suficiente, iniciarla y cancelarla. | Al iniciar se descuentan 2 unidades; al cancelar se reintegran. |
+| F9 | Crear una orden de 2 unidades de la misma vela con stock suficiente, iniciarla y cancelarla (en el panel, confirmar con «Cancelar pedido»). | Al iniciar se descuentan 2 unidades; al cancelar se reintegran. |
 | F28 | Crear un pedido de «Vela de soja Lavanda 220ml» con el cliente «Spa Lavanda» y otro sin cliente; asignar a este «Almacén Natural Rosario». | El primero muestra el cliente, el segundo «Consumidor final» hasta asignarle el cliente; el panel lo refleja. |
 | F36 | En el Panel principal, avanzar con ▶ un pedido sin stock suficiente. | Se informa el faltante y el pedido conserva su estado. |
 | F47 | Crear una orden con 2 velas de lavanda, 3 de naranja y otra vela de lavanda; luego quitar una línea y presionar «Guardar productos». | La orden tiene una línea por producto (lavanda × 3) y sus productos cambian mientras está en espera. |
 | F48 | Iniciar una orden con las dos velas cuando a una le falta stock. | Se detalla el faltante de cada producto y no se descuenta ninguno. |
+| F54 | En Órdenes, iniciar y finalizar un pedido de 1 «Vela de soja Naranja cítrica 220ml», seleccionarlo y presionar «Reabrir (volver a en proceso)». También desde el Panel principal, con ↺. | El pedido vuelve a «En proceso» sin mover el stock y el historial de estados registra «Finalizada → En proceso» con fecha y usuario. |
+| F55 | Crear y planificar un pedido, cancelarlo y presionar «Restaurar», que indica el estado de destino (en el panel, ↺). | El pedido vuelve a «Planificada», el estado que tenía antes de cancelarse. |
+| F56 | En el Panel principal, elegir en «Filtrar por fecha» el mes actual y dejar marcado solo el estado «Cancelada». | Solo se listan los pedidos cancelados creados en ese mes; los indicadores no cambian. |
 
 ## Cotización, indicadores y bitácora
 
@@ -111,6 +114,14 @@ Recursos auxiliares para los casos que dependen de servicios externos:
 | F14 | Cambiar el contenido de una copia homónima en la nube y sincronizar. | Se conservan las dos versiones y se informa el conflicto. |
 | F15 | Indicar una carpeta de nube inexistente y sincronizar. | Se omite la sincronización informando el motivo; la aplicación sigue funcionando. |
 | F31 | Generar una copia con el sistema en uso y sincronizar. | La copia figura en el historial y en la carpeta de nube. |
-| F40 | Restaurar una copia sin escribir `RESTAURAR`. | La operación se cancela y los datos no cambian. |
+| F40 | Restaurar una copia y, en el cuadro de confirmación, no escribir `RESTAURAR` (o escribir otra palabra) y presionar «Volver». | El botón «Restaurar» del cuadro sigue deshabilitado; se informa «Restauración cancelada.» y los datos no cambian. |
 | F17 | Restablecer la base sin escribir `BORRAR TODO`. | El botón queda deshabilitado y no se borra nada. |
-| F17 | Restablecer con `BORRAR TODO` y confirmar. | Se vuelve al ingreso; no quedan «Set de regalo» ni clientes, y la bitácora registra `ResetearBaseDatos`. |
+| F17 | Restablecer con `BORRAR TODO` y presionar «Restablecer» en el cuadro de confirmación. | Se vuelve al ingreso; no quedan «Set de regalo» ni clientes, y la bitácora registra `ResetearBaseDatos`. |
+
+## Mensajes y confirmaciones dentro de la página
+
+| Caso | Datos y pasos | Resultado esperado |
+|---|---|---|
+| F57 | En Productos, desactivar «Vela de soja Naranja cítrica 220ml» y presionar «Volver» en el cuadro. | Se abre un cuadro del sistema (no una ventana del navegador); al volver, el producto sigue activo. |
+| — | Crear una orden por más unidades que el stock del producto. | El faltante se informa en la barra de estado de la página, sin ventanas emergentes. |
+| F58 | Crear y planificar un pedido de 999 velas y, en el Panel principal, presionar ▶ en su fila. | El rechazo por falta de stock aparece en rojo en la barra de estado y la pantalla sigue respondiendo (por ejemplo, al cambiar el período); no aparece el aviso de error del sistema. |

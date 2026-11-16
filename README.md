@@ -29,11 +29,14 @@ Menú agrupado (Dashboard, Stock, Proveedores, Clientes, Producción, Finanzas y
 
 - Ingreso con opción de mostrar la contraseña, «¿Olvidó su contraseña?» (código por correo) y registro de cada intento
   en la bitácora. «Mi cuenta» para editar los datos propios y cambiar la contraseña.
-- Panel principal (resumen de ventas filtrable por mes y pedidos con filtros por estado, orden y búsqueda),
+- Panel principal (resumen de ventas filtrable por mes y pedidos, incluidas las canceladas, con filtros por mes de
+  creación, estado, orden y búsqueda; acciones para avanzar, cancelar, reabrir finalizadas y restaurar canceladas),
   inteligencia de negocio y faltantes.
 - Productos (con receta e historial de costos), insumos, insumos especiales (tramos de precio y simulador de consumo),
   ingresos de stock y carga masiva de precios desde Excel.
-- Proveedores, clientes y órdenes de producción.
+- Proveedores, clientes y órdenes de producción con varios productos por orden. Una orden finalizada se puede reabrir
+  (vuelve a en proceso) y una cancelada se restaura al estado que tenía; cada alta y cambio de estado queda en el
+  historial de estados de la orden (fecha y usuario), del que sale el indicador «Tiempo promedio de armado».
 - Configuración monetaria (dólar blue automático, carga manual e historial).
 - Usuarios, roles y permisos, y cuenta de correo para la recuperación de contraseñas.
 - Copias de seguridad (manuales, automáticas, descarga, restauración y sincronización con la nube), restablecimiento
@@ -41,6 +44,21 @@ Menú agrupado (Dashboard, Stock, Proveedores, Clientes, Producción, Finanzas y
 - Ayuda en línea: el manual de usuario (`wwwroot/ayuda/manual-de-usuario.pdf`), enlazado desde el menú y el ingreso.
 
 Productos e insumos no se eliminan: se desactivan y se pueden reactivar desde «Mostrar inactivos».
+
+### Mensajes y confirmaciones
+
+Todos los mensajes se muestran dentro de la página, nunca como ventanas emergentes del navegador:
+
+- El resultado de cada operación aparece en la barra de estado de la pantalla; los errores se resaltan en rojo. Si una
+  operación falla, el error se informa ahí y la pantalla sigue funcionando (no se corta la conexión con el servidor).
+- Las acciones que borran o cambian datos de forma importante (desactivar, eliminar, cancelar o reabrir un pedido,
+  importar precios, restablecer la base) piden confirmación con un cuadro propio del sistema, con los botones
+  «Volver» y el de la acción. Para restaurar una copia de seguridad, el botón se habilita recién al escribir
+  `RESTAURAR` en el cuadro.
+- El aviso de faltante de stock al crear una orden o cambiar sus productos se informa en la barra de estado.
+
+La lógica está en `src/StockManufactura.Web/Components/PaginaBase.cs` (`ConfirmarAsync`, `ConfirmarConFraseAsync`,
+`MostrarError` y el manejo central de los eventos), `Infrastructure/DialogoPagina.cs` y `Components/Shared/Dialogo.razor`.
 
 ### Demo publicada (Render, plan gratuito)
 
@@ -61,8 +79,8 @@ minuto. La recuperación de contraseña por correo no está configurada en la de
 
 | Proyecto | Qué cubre | Cómo se ejecuta |
 |---|---|---|
-| `tests/StockManufactura.UnitTests` | Servicios de las capas de aplicación e infraestructura (75 pruebas). | `dotnet test` |
-| `tests/StockManufactura.Web.Tests` | Lógica propia de la web (períodos, permisos por módulo, sesión, movimiento de stock de pedidos) y pruebas de integración HTTP sobre el sitio completo en memoria: ingreso, cambio de contraseña obligatorio, redirección segura, menú por rol, descarga de copias (401/403/404) cierre de sesión, copias sobre la base configurada, restablecimiento de la base y modo demostración (66 pruebas). | `dotnet test` |
+| `tests/StockManufactura.UnitTests` | Servicios de las capas de aplicación e infraestructura (93 pruebas). | `dotnet test` |
+| `tests/StockManufactura.Web.Tests` | Lógica propia de la web (períodos, permisos por módulo, sesión, movimiento de stock de pedidos) y pruebas de integración HTTP sobre el sitio completo en memoria: ingreso, cambio de contraseña obligatorio, redirección segura, menú por rol, descarga de copias (401/403/404), cierre de sesión, copias sobre la base configurada, restablecimiento de la base y modo demostración (68 pruebas). | `dotnet test` |
 | `tests/StockManufactura.Web.E2E` | 40 controles en Chrome contra un servidor levantado, incluida la vista de celular. Modifica datos: usar solo con una base de prueba. | Ver su `README.md` |
 
 ---
