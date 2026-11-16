@@ -135,7 +135,7 @@
                         }
                     }
                 }
-                <StatusBar Mensaje="@StatusMessage" />
+                <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
             </section>
         </div>
     </ChildContent>
@@ -341,7 +341,7 @@
         if (!CanEdit) { StatusMessage = "No tiene permisos para editar productos."; return; }
 
         var activar = !_seleccionado.Activo;
-        if (!activar && !await ConfirmarAsync($"¿Desactivar el producto '{_seleccionado.Nombre}'? Dejará de aparecer en los listados y en nuevas órdenes. Se puede reactivar desde \"Mostrar inactivos\"."))
+        if (!activar && !await ConfirmarAsync($"¿Desactivar el producto '{_seleccionado.Nombre}'? Dejará de aparecer en los listados y en nuevas órdenes. Se puede reactivar desde \"Mostrar inactivos\".", "Desactivar"))
         {
             return;
         }
@@ -437,7 +437,7 @@
     private async Task QuitarComponenteAsync(RecipeRow row)
     {
         if (!CanEdit || _seleccionado is null) { return; }
-        if (!await ConfirmarAsync($"¿Quitar '{row.Nombre}' de la receta?")) { return; }
+        if (!await ConfirmarAsync($"¿Quitar '{row.Nombre}' de la receta?", "Quitar")) { return; }
 
         var entidad = await UnitOfWork.RecetaProductoItems.GetByIdAsync(row.Id);
         if (entidad is null) { return; }

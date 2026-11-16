@@ -112,7 +112,7 @@
                         </div>
                     }
                 }
-                <StatusBar Mensaje="@StatusMessage" />
+                <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
             </section>
         </div>
     </ChildContent>
@@ -223,7 +223,7 @@
         if (_seleccionado is null) { return; }
 
         var activar = !_seleccionado.Activo;
-        if (!activar && !await ConfirmarAsync($"¿Desactivar el insumo especial '{_seleccionado.Nombre}'? Dejará de aparecer en los listados y en recetas nuevas. Se puede reactivar desde \"Mostrar inactivos\"."))
+        if (!activar && !await ConfirmarAsync($"¿Desactivar el insumo especial '{_seleccionado.Nombre}'? Dejará de aparecer en los listados y en recetas nuevas. Se puede reactivar desde \"Mostrar inactivos\".", "Desactivar"))
         {
             return;
         }

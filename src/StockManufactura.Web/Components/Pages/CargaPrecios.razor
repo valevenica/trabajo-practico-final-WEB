@@ -29,7 +29,7 @@
                 @if (_archivoNombre is not null) { <div class="muted small">@_archivoNombre</div> }
             </div>
         </div>
-        <StatusBar Mensaje="@StatusMessage" />
+        <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
     </div>
 
     @if (_filas.Count > 0)
@@ -186,7 +186,7 @@
         catch (Exception ex)
         {
             _filas = Array.Empty<ResourcePriceImportRow>();
-            StatusMessage = $"Error al leer el archivo: {ex.Message}";
+            MostrarError($"Error al leer el archivo: {ex.Message}");
         }
     }
 

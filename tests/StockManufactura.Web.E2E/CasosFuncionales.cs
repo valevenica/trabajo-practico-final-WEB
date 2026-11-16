@@ -43,7 +43,7 @@ public static class CasosFuncionales
         {
             var p = await (await browser.NewContextAsync(new() { ViewportSize = new() { Width = 1366, Height = 900 }, Locale = "es-AR", AcceptDownloads = true })).NewPageAsync();
             p.SetDefaultTimeout(15000);
-            p.Dialog += async (_, d) => { if (d.Type == "prompt") await d.AcceptAsync("no"); else await d.AcceptAsync(); };
+            await DialogosPagina.ResponderSolosAsync(p);
             await p.GotoAsync((url ?? b) + "login");
             actual = p;
             return p;
@@ -413,6 +413,86 @@ public static class CasosFuncionales
             Exigir((await admin.Locator("tbody").InnerTextAsync()).Contains("Almacén Natural Rosario"), "el panel no muestra el cliente");
         });
 
+        async Task<string> EstadoPrimeraOrden(IPage p) => (await p.Locator(".table.selectable tbody tr").First.Locator(".badge").InnerTextAsync()).Trim();
+
+        await Caso("F54", "Reapertura de una orden finalizada", async () =>
+        {
+            await OrdenPlanificada(admin, "Vela de soja Naranja cítrica 220ml", "1");
+            await admin.ClickAsync("button:has-text('Iniciar')"); await admin.WaitForTimeoutAsync(1200);
+            await admin.ClickAsync("button:has-text('Finalizar')"); await admin.WaitForTimeoutAsync(1200);
+            var stock = await StockProducto(admin, "Vela de soja Naranja");
+            await Ir(admin, b, "ordenes");
+            await admin.Locator(".table.selectable tbody tr").First.ClickAsync(); await admin.WaitForTimeoutAsync(600);
+            Exigir(await EstadoPrimeraOrden(admin) == "Finalizada", "la orden no quedó finalizada");
+            await admin.ClickAsync("button:has-text('Reabrir')"); await admin.WaitForTimeoutAsync(1200);
+            Exigir((await Estado(admin)).Contains("reabierta"), await Estado(admin));
+            Exigir(await EstadoPrimeraOrden(admin) == "En proceso", "no volvió a en proceso");
+            Exigir((await admin.Locator("table:has(th:text-is('Cambio'))").InnerTextAsync()).Contains("Finalizada →"), "el historial no registra la reapertura");
+            Exigir(await StockProducto(admin, "Vela de soja Naranja") == stock, "reabrir movió el stock");
+        });
+
+        await Caso("F55", "Restauración de una orden cancelada al estado que tenía", async () =>
+        {
+            await OrdenPlanificada(admin, "Vela de soja Naranja cítrica 220ml", "1");
+            await admin.ClickAsync("button:has-text('Cancelar orden')"); await admin.WaitForTimeoutAsync(1200);
+            Exigir(await EstadoPrimeraOrden(admin) == "Cancelada", "no se canceló");
+            await admin.ClickAsync("button:has-text('Restaurar a «Planificada»')"); await admin.WaitForTimeoutAsync(1200);
+            Exigir((await Estado(admin)).Contains("restaurada"), await Estado(admin));
+            Exigir(await EstadoPrimeraOrden(admin) == "Planificada", "no volvió a planificada");
+        });
+
+        await Caso("F56", "Filtro de pedidos del panel por mes de creación y estado", async () =>
+        {
+            await Ir(admin, b, "");
+            await admin.Locator(".filters select[title='Mes de creación del pedido']").SelectOptionAsync(DateTime.Now.ToString("yyyy-MM")); await admin.WaitForTimeoutAsync(800);
+            await admin.Locator(".multi-select summary").ClickAsync();
+            await admin.Locator(".multi-select label", new() { HasText = "Todos" }).Locator("input").UncheckAsync(); await admin.WaitForTimeoutAsync(400);
+            await admin.Locator(".multi-select label", new() { HasText = "Cancelada" }).Locator("input").CheckAsync(); await admin.WaitForTimeoutAsync(800);
+            var estados = await admin.Locator("tbody tr .badge").AllInnerTextsAsync();
+            Exigir(estados.Count > 0 && estados.All(e => e.Trim() == "Cancelada"), "filas: " + string.Join(", ", estados));
+            var fechas = await admin.Locator("tbody tr td:nth-child(6)").AllInnerTextsAsync();
+            Exigir(fechas.All(f => f.Trim().EndsWith(DateTime.Now.ToString("MM/yyyy"))), "hay pedidos de otro mes");
+        });
+
+        await Caso("F57", "Confirmación de una acción en un cuadro dentro de la página", async () =>
+        {
+            var ventanaDelNavegador = false;
+            void AlAbrir(object? _, IDialog d) { ventanaDelNavegador = true; _ = d.DismissAsync(); }
+            admin.Dialog += AlAbrir;
+            try
+            {
+                await SeleccionarProducto(admin, "Vela de soja Naranja");
+                await DialogosPagina.ManualAsync(admin, true);
+                await admin.ClickAsync("button:has-text('Desactivar')");
+                await admin.Locator(".dialogo").WaitForAsync();
+                Exigir((await admin.Locator(".dialogo-texto").InnerTextAsync()).Contains("Desactivar el producto"), "el cuadro no explica la acción");
+                await admin.ClickAsync(".dialogo [data-dialogo=cancelar]"); await admin.WaitForTimeoutAsync(800);
+                Exigir(await admin.Locator(".dialogo").CountAsync() == 0, "el cuadro no se cerró");
+                Exigir(await admin.Locator(".alert-warning", new() { HasText = "Producto desactivado" }).CountAsync() == 0, "se desactivó al volver");
+                Exigir(!ventanaDelNavegador, "se abrió una ventana del navegador");
+            }
+            finally
+            {
+                await DialogosPagina.ManualAsync(admin, false);
+                admin.Dialog -= AlAbrir;
+            }
+        });
+
+        await Caso("F58", "Error de una operación informado dentro de la página", async () =>
+        {
+            await OrdenPlanificada(admin, "Vela de soja Naranja cítrica 220ml", "999");
+            await Ir(admin, b, "");
+            var fila = admin.Locator("tbody tr", new() { HasText = "999" }).First;
+            await fila.Locator("button[title='Iniciar']").ClickAsync(); await admin.WaitForTimeoutAsync(1200);
+            var error = admin.Locator(".status.status-error");
+            Exigir(await error.CountAsync() == 1, "el error no se resaltó en la barra de estado");
+            var texto = await error.InnerTextAsync();
+            Exigir(texto.Contains("insuficiente", StringComparison.OrdinalIgnoreCase) || texto.Contains("Faltan"), texto);
+            Exigir(!await admin.Locator("#blazor-error-ui").IsVisibleAsync(), "se mostró el aviso de error del sistema");
+            await admin.Locator(".period-picker select").SelectOptionAsync("2026-10"); await admin.WaitForTimeoutAsync(1200);
+            Exigir(await admin.Locator(".kpi").CountAsync() == 4, "la pantalla dejó de responder");
+        });
+
         // ------------------------------------------------------------------ Panel e inteligencia de negocio
         await Caso("F24", "Consulta del panel en un período con pedidos finalizados", async () =>
         {
@@ -532,6 +612,8 @@ public static class CasosFuncionales
         {
             await Ir(admin, b, "backups");
             await admin.Locator(".form-grid div", new() { HasText = "Carpeta de la nube" }).Locator("input").FillAsync(@"Z:\carpeta-que-no-existe");
+            // Sin depender de F13 (que la activa): la sincronización tiene que estar habilitada para poder intentarla.
+            await admin.Locator("label.check", new() { HasText = "Sincronizar con la nube" }).Locator("input").CheckAsync();
             await admin.ClickAsync("button:has-text('Guardar configuración')"); await admin.WaitForTimeoutAsync(1000);
             await admin.ClickAsync("button:has-text('Sincronizar ahora')"); await admin.WaitForTimeoutAsync(2500);
             var estado = await Estado(admin);

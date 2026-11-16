@@ -137,7 +137,7 @@
                 </div>
             </div>
         }
-        <StatusBar Mensaje="@StatusMessage" />
+        <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
     </ChildContent>
 </PaginaMarco>
 
@@ -263,7 +263,7 @@
 
     private async Task CancelarAsync(OrdenProduccion orden)
     {
-        if (!await ConfirmarAsync($"¿Cancelar el pedido {orden.Codigo}?"))
+        if (!await ConfirmarAsync($"¿Cancelar el pedido {orden.Codigo}?", "Cancelar pedido", peligroso: true))
         {
             return;
         }
@@ -322,13 +322,11 @@
         }
         catch (InvalidOperationException ex)
         {
-            StatusMessage = ex.Message;
+            MostrarError(ex.Message);
         }
 
         // Se recarga siempre: si la transición falló, descarta el estado que quedó cambiado en memoria.
-        var mensajeFinal = StatusMessage;
-        await CargarAsync();
-        StatusMessage = mensajeFinal;
+        await RecargarConservandoMensajeAsync(CargarAsync);
     }
 
     private static int OrdenEstado(EstadoOrdenProduccion estado) => estado switch

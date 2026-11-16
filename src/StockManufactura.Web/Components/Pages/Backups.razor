@@ -43,7 +43,7 @@
                         <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(GuardarAsync)">Guardar configuración</button>
                         <button class="btn btn-secondary" disabled="@(Ocupado || !_config.GoogleDriveHabilitado)" @onclick="() => EjecutarAsync(SincronizarAsync)">Sincronizar ahora</button>
                     </div>
-                    <StatusBar Mensaje="@StatusMessage" />
+                    <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
                 </section>
 
                 <section class="card">
@@ -185,9 +185,9 @@
     private async Task RestaurarAsync(string ruta, string? nombre = null)
     {
         nombre ??= Path.GetFileName(ruta);
-        var confirmacion = await JS.InvokeAsync<string?>("prompt",
-            $"Se van a reemplazar TODOS los datos actuales por los de «{nombre}». Antes se genera una copia del estado actual.\n\nEscribí RESTAURAR para confirmar.");
-        if (!string.Equals(confirmacion?.Trim(), "RESTAURAR", StringComparison.Ordinal))
+        if (!await ConfirmarConFraseAsync(
+                $"Se van a reemplazar TODOS los datos actuales por los de «{nombre}». Antes se genera una copia del estado actual.",
+                "RESTAURAR", "Restaurar"))
         {
             StatusMessage = "Restauración cancelada.";
             return;
@@ -207,7 +207,7 @@
             return;
         }
 
-        if (!await ConfirmarAsync("Se van a borrar TODOS los datos del sistema en forma irreversible. Antes se genera una copia de seguridad. ¿Continuar?"))
+        if (!await ConfirmarAsync("Se van a borrar TODOS los datos del sistema en forma irreversible. Antes se genera una copia de seguridad. ¿Continuar?", "Restablecer", peligroso: true))
         {
             StatusMessage = "Restablecimiento cancelado.";
             return;

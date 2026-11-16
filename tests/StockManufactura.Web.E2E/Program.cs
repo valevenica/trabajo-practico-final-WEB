@@ -20,8 +20,7 @@ await using var browser = await pw.Chromium.LaunchAsync(new() { Channel = "chrom
 var ctx = await browser.NewContextAsync(new() { ViewportSize = new() { Width = 1366, Height = 900 }, AcceptDownloads = true });
 var page = await ctx.NewPageAsync();
 page.SetDefaultTimeout(10000);
-string? respuestaPrompt = null;
-page.Dialog += async (_, d) => { if (d.Type == "prompt") await d.AcceptAsync(respuestaPrompt ?? ""); else await d.AcceptAsync(); };
+await DialogosPagina.ResponderSolosAsync(page);
 page.Console += (_, m) => { if (m.Type == "error") Console.WriteLine($"  [error de consola] {m.Text}"); };
 
 int correctas = 0, fallas = 0;
@@ -291,10 +290,10 @@ await Check("backups: generar, descargar y restaurar con confirmación", async (
     await page.ClickAsync("text=Generar copia ahora"); await page.WaitForTimeoutAsync(2000);
     var dl = await page.RunAndWaitForDownloadAsync(() => page.Locator("a:has-text('Descargar')").First.ClickAsync());
     if (!dl.SuggestedFilename.EndsWith(".zip")) throw new Exception(dl.SuggestedFilename);
-    respuestaPrompt = "no";
+    await DialogosPagina.FraseAsync(page, "no");
     await page.Locator("button:has-text('Restaurar')").First.ClickAsync(); await page.WaitForTimeoutAsync(800);
     if (await Status() != "Restauración cancelada.") throw new Exception(await Status());
-    respuestaPrompt = "RESTAURAR";
+    await DialogosPagina.FraseAsync(page, "RESTAURAR");
     await page.Locator("button:has-text('Restaurar')").First.ClickAsync(); await page.WaitForTimeoutAsync(3000);
     if (!(await Status()).StartsWith("Restauración completada")) throw new Exception(await Status());
     await SinError();

@@ -1,0 +1,47 @@
+@* Cuadro de confirmación dentro de la página; lo abre PaginaBase.ConfirmarAsync / PedirFraseAsync. *@
+@implements IDisposable
+@inject DialogoPagina Servicio
+
+@if (Servicio.Actual is { } d)
+{
+    <div class="dialogo-fondo" @onclick="Cancelar">
+        <div class="dialogo" role="alertdialog" aria-modal="true" aria-labelledby="dialogo-texto" @onclick:stopPropagation="true">
+            <p id="dialogo-texto" class="dialogo-texto">@d.Mensaje</p>
+            @if (d.FraseRequerida is not null)
+            {
+                <label class="dialogo-frase">
+                    Escribí <strong>@d.FraseRequerida</strong> para confirmar:
+                    <input type="text" @bind="_frase" @bind:event="oninput" autocomplete="off" />
+                </label>
+            }
+            <div class="dialogo-botones">
+                <button type="button" class="btn btn-secondary" data-dialogo="cancelar" @onclick="Cancelar">Volver</button>
+                <button type="button" class="btn @(d.Peligroso ? "btn-danger" : "btn-primary")" data-dialogo="aceptar"
+                        disabled="@(d.FraseRequerida is not null && _frase.Trim() != d.FraseRequerida)" @onclick="Aceptar">@d.TextoAceptar</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private string _frase = string.Empty;
+
+    protected override void OnInitialized() => Servicio.Cambio += AlCambiar;
+
+    private void AlCambiar()
+    {
+        _frase = string.Empty;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void Aceptar() => Servicio.Responder(true);
+
+    private void Cancelar() => Servicio.Responder(false);
+
+    public void Dispose()
+    {
+        Servicio.Cambio -= AlCambiar;
+        // Si se sale de la pantalla con el diálogo abierto, la acción queda cancelada.
+        Servicio.Responder(false);
+    }
+}

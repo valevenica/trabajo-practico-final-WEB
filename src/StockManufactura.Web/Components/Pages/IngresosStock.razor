@@ -118,7 +118,7 @@
         <div class="form-actions">
             <button class="btn btn-primary" disabled="@(Ocupado || _lineas.Count == 0)" @onclick="() => EjecutarAsync(GuardarAsync)">Registrar ingreso</button>
         </div>
-        <StatusBar Mensaje="@StatusMessage" />
+        <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
     </div>
 </PaginaMarco>
 
@@ -166,7 +166,7 @@
         catch (Exception ex)
         {
             DescartarFactura();
-            StatusMessage = $"No se pudo leer la factura: {ex.Message}";
+            MostrarError($"No se pudo leer la factura: {ex.Message}");
             return;
         }
 

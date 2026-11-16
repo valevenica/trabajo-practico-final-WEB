@@ -80,7 +80,7 @@
                     <div class="form-actions">
                         <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(GuardarAsync)">Guardar</button>
                     </div>
-                    <StatusBar Mensaje="@StatusMessage" />
+                    <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
                 </div>
 
                 @if (_seleccionado is not null)
@@ -292,7 +292,7 @@
         if (_seleccionado is null) { return; }
 
         var activar = !_seleccionado.Activo;
-        if (!activar && !await ConfirmarAsync($"¿Desactivar el insumo '{_seleccionado.Nombre}'? Dejará de aparecer en los listados, en recetas nuevas y en ingresos de stock. Se puede reactivar desde \"Mostrar inactivos\"."))
+        if (!activar && !await ConfirmarAsync($"¿Desactivar el insumo '{_seleccionado.Nombre}'? Dejará de aparecer en los listados, en recetas nuevas y en ingresos de stock. Se puede reactivar desde \"Mostrar inactivos\".", "Desactivar"))
         {
             return;
         }

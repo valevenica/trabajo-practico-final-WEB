@@ -15,17 +15,35 @@ namespace StockManufactura.Web.Components
     /// Base de las pantallas de gestión. Cada página resuelve sus servicios (y por lo tanto su DbContext) desde un ámbito
     /// propio que se libera al salir de ella: un contexto de datos por pantalla.
     /// </summary>
-    public abstract class PaginaBase : OwningComponentBase
+    public abstract class PaginaBase : OwningComponentBase, IHandleEvent
     {
         [Inject] protected WebSession Session { get; set; } = default!;
         [Inject] protected NavigationManager Navigation { get; set; } = default!;
         [Inject] protected IJSRuntime JS { get; set; } = default!;
+        [Inject] private DialogoPagina Dialogo { get; set; } = default!;
 
         protected abstract string Modulo { get; }
 
         protected bool Cargando { get; private set; } = true;
         protected string? AccesoDenegado { get; private set; }
-        protected string StatusMessage { get; set; } = string.Empty;
+        private string _statusMessage = string.Empty;
+
+        /// <summary>Mensaje de la barra de estado de la pantalla. Asignarlo informa un resultado normal (no un error).</summary>
+        protected string StatusMessage
+        {
+            get => _statusMessage;
+            set { _statusMessage = value; StatusEsError = false; }
+        }
+
+        /// <summary>Verdadero cuando el mensaje de la barra de estado es un error; se muestra resaltado en rojo.</summary>
+        protected bool StatusEsError { get; private set; }
+
+        /// <summary>Informa un error dentro de la página, en la barra de estado.</summary>
+        protected void MostrarError(string mensaje)
+        {
+            _statusMessage = mensaje;
+            StatusEsError = true;
+        }
         protected bool Ocupado { get; private set; }
 
         private readonly Dictionary<Type, object> _servicios = new();
@@ -69,7 +87,7 @@ namespace StockManufactura.Web.Components
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Error al cargar: {ex.Message}";
+                MostrarError($"Error al cargar: {ex.Message}");
             }
             finally
             {
@@ -97,7 +115,7 @@ namespace StockManufactura.Web.Components
             }
             catch (Exception ex)
             {
-                StatusMessage = ex.InnerException?.Message ?? ex.Message;
+                MostrarError(MensajeDe(ex));
             }
             finally
             {
@@ -105,7 +123,48 @@ namespace StockManufactura.Web.Components
             }
         }
 
-        protected ValueTask<bool> ConfirmarAsync(string mensaje) => JS.InvokeAsync<bool>("confirm", mensaje);
+        /// <summary>
+        /// Todo evento de la pantalla (clic, cambio de selección, carga de archivo) pasa por acá: si falla, el error se
+        /// informa en la barra de estado de la página en lugar de cortar la conexión y mostrar el aviso de error del sistema.
+        /// </summary>
+        async Task IHandleEvent.HandleEventAsync(EventCallbackWorkItem callback, object? arg)
+        {
+            try
+            {
+                var tarea = callback.InvokeAsync(arg);
+                if (!tarea.IsCompleted)
+                {
+                    StateHasChanged();
+                }
+
+                await tarea;
+            }
+            catch (Exception ex)
+            {
+                MostrarError(MensajeDe(ex));
+            }
+
+            StateHasChanged();
+        }
+
+        /// <summary>Recarga los datos de la pantalla sin perder el mensaje de la barra de estado ni su marca de error.</summary>
+        protected async Task RecargarConservandoMensajeAsync(Func<Task> recarga)
+        {
+            var (mensaje, esError) = (_statusMessage, StatusEsError);
+            await recarga();
+            _statusMessage = mensaje;
+            StatusEsError = esError;
+        }
+
+        private static string MensajeDe(Exception ex) => ex.InnerException?.Message ?? ex.Message;
+
+        /// <summary>Pide confirmación con un cuadro dentro de la página (no con la ventana emergente del navegador).</summary>
+        protected Task<bool> ConfirmarAsync(string mensaje, string textoAceptar = "Aceptar", bool peligroso = false)
+            => Dialogo.MostrarAsync(new DialogoSolicitud(mensaje, textoAceptar, peligroso, null));
+
+        /// <summary>Confirmación reforzada: el botón se habilita recién cuando se escribe la frase indicada.</summary>
+        protected Task<bool> ConfirmarConFraseAsync(string mensaje, string frase, string textoAceptar)
+            => Dialogo.MostrarAsync(new DialogoSolicitud(mensaje, textoAceptar, true, frase));
 
         /// <summary>Entrega un archivo generado en el servidor como descarga del navegador (ver wwwroot/js/app.js).</summary>
         protected ValueTask Descargar(string nombre, string contenido, string tipo)

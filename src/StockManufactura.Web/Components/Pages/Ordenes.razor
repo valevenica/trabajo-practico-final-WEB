@@ -119,7 +119,7 @@
                     <button class="btn btn-link" @onclick="NuevaOrden">Nueva orden</button>
                 }
             </div>
-            <StatusBar Mensaje="@StatusMessage" />
+            <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
 
             @if (_seleccionada is not null)
             {
@@ -395,7 +395,7 @@
             aviso += $" Además, no alcanzan los insumos para fabricar esas unidades: {string.Join(", ", insumosQueNoAlcanzan)}.";
         }
 
-        await JS.InvokeVoidAsync("alert", aviso);
+        // El aviso se muestra en la barra de estado de la página (antes era una ventana emergente del navegador).
         return aviso;
     }
 
@@ -423,14 +423,15 @@
         }
         catch (InvalidOperationException ex)
         {
-            StatusMessage = ex.Message;
+            MostrarError(ex.Message);
         }
 
         // Se recarga siempre: si la transición falló, descarta el estado que quedó cambiado en memoria.
-        var mensajeFinal = StatusMessage;
-        await CargarAsync();
-        if (_seleccionada is not null) { Seleccionar(_seleccionada); }
-        StatusMessage = mensajeFinal;
+        await RecargarConservandoMensajeAsync(async () =>
+        {
+            await CargarAsync();
+            if (_seleccionada is not null) { Seleccionar(_seleccionada); }
+        });
     }
 
     private Task BorradorAsync() => TransicionAsync(o => o.VolverABorrador(), "Borrador", "Orden regresada a borrador.");
@@ -467,7 +468,7 @@
         }
         catch (InvalidOperationException ex)
         {
-            StatusMessage = ex.Message;
+            MostrarError(ex.Message);
         }
 
         await CargarAsync();
@@ -480,7 +481,7 @@
         var orden = _seleccionada;
         if (orden.Estado == EstadoOrdenProduccion.EnProceso) { StatusMessage = "No se puede eliminar una orden en proceso. Cancelala primero para liberar el stock reservado."; return; }
         if (orden.Estado == EstadoOrdenProduccion.Finalizada) { StatusMessage = "No se pueden eliminar órdenes finalizadas; forman parte del historial."; return; }
-        if (!await ConfirmarAsync($"¿Eliminar la orden '{orden.Codigo}'? Esta acción no se puede deshacer.")) { return; }
+        if (!await ConfirmarAsync($"¿Eliminar la orden '{orden.Codigo}'? Esta acción no se puede deshacer.", "Eliminar", peligroso: true)) { return; }
 
         UnitOfWork.OrdenesProduccion.Delete(orden);
         await UnitOfWork.SaveChangesAsync();

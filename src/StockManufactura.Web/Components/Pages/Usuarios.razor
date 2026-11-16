@@ -73,7 +73,7 @@
                         <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(AsignarTemporalAsync)">Asignar contraseña temporal</button>
                     </div>
                 }
-                <StatusBar Mensaje="@StatusMessage" />
+                <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
             </section>
         </div>
     }
@@ -124,7 +124,7 @@
                         <button class="btn btn-secondary danger" disabled="@Ocupado" @onclick="() => EjecutarAsync(EliminarRolAsync)">Eliminar rol</button>
                     </div>
                 }
-                <StatusBar Mensaje="@StatusMessage" />
+                <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
             </section>
         </div>
     }
@@ -150,7 +150,7 @@
                 <button class="btn btn-primary" disabled="@Ocupado" @onclick="() => EjecutarAsync(GuardarCorreoAsync)">Guardar configuración</button>
                 <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(CorreoPruebaAsync)">Enviarme un correo de prueba</button>
             </div>
-            <StatusBar Mensaje="@StatusMessage" />
+            <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
         </section>
     }
 </PaginaMarco>
@@ -253,10 +253,11 @@
             StatusMessage = "Usuario actualizado.";
         }
 
-        var mensaje = StatusMessage;
-        await CargarAsync();
-        SeleccionarUsuario(_usuarios.First(x => x.Id == guardado.Id));
-        StatusMessage = mensaje;
+        await RecargarConservandoMensajeAsync(async () =>
+        {
+            await CargarAsync();
+            SeleccionarUsuario(_usuarios.First(x => x.Id == guardado.Id));
+        });
     }
 
     private async Task AsignarTemporalAsync()
@@ -273,7 +274,7 @@
     private async Task EliminarUsuarioAsync()
     {
         if (_usuarioSel is null || EsUsuarioActual) { return; }
-        if (!await ConfirmarAsync($"¿Eliminar el usuario '{_usuarioSel.Nombre}' ({_usuarioSel.Email})? Esta acción no se puede deshacer. Si solo querés impedirle el ingreso, desmarcá «Usuario activo»."))
+        if (!await ConfirmarAsync($"¿Eliminar el usuario '{_usuarioSel.Nombre}' ({_usuarioSel.Email})? Esta acción no se puede deshacer. Si solo querés impedirle el ingreso, desmarcá «Usuario activo».", "Eliminar", peligroso: true))
         {
             return;
         }
@@ -321,7 +322,7 @@
     private async Task EliminarRolAsync()
     {
         if (_rolSel is null) { return; }
-        if (!await ConfirmarAsync($"¿Eliminar el rol '{_rolSel.Nombre}'? Esta acción no se puede deshacer.")) { return; }
+        if (!await ConfirmarAsync($"¿Eliminar el rol '{_rolSel.Nombre}'? Esta acción no se puede deshacer.", "Eliminar", peligroso: true)) { return; }
 
         await Gestion.DeleteRoleAsync(_rolSel.Id, Session.Actor);
         _rolSel = null;
@@ -355,7 +356,7 @@
         }
         catch (Exception ex)
         {
-            StatusMessage = $"No se pudo enviar el correo de prueba: {ex.InnerException?.Message ?? ex.Message}";
+            MostrarError($"No se pudo enviar el correo de prueba: {ex.InnerException?.Message ?? ex.Message}");
         }
     }
 }

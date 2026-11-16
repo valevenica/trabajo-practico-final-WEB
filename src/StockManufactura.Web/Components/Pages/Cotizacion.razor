@@ -36,7 +36,7 @@
             <div class="form-actions">
                 <button class="btn btn-secondary" disabled="@Ocupado" @onclick="() => EjecutarAsync(GuardarManualAsync)">Guardar manual</button>
             </div>
-            <StatusBar Mensaje="@StatusMessage" />
+            <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
         </section>
 
         <section class="card list-panel">
@@ -106,7 +106,7 @@
         }
         catch (Exception ex)
         {
-            StatusMessage = $"No se pudo obtener la cotización: {ex.InnerException?.Message ?? ex.Message}";
+            MostrarError($"No se pudo obtener la cotización: {ex.InnerException?.Message ?? ex.Message}");
         }
 
         await RecargarConservandoMensajeAsync();
@@ -157,10 +157,5 @@
         }
     }
 
-    private async Task RecargarConservandoMensajeAsync()
-    {
-        var mensaje = StatusMessage;
-        await CargarAsync();
-        StatusMessage = mensaje;
-    }
+    private Task RecargarConservandoMensajeAsync() => RecargarConservandoMensajeAsync(CargarAsync);
 }

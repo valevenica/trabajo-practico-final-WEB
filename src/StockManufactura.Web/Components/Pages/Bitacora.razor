@@ -40,6 +40,7 @@
                 <button class="btn btn-link" disabled="@Ocupado" @onclick="() => EjecutarAsync(LimpiarAsync)">Limpiar filtros</button>
                 <span class="muted small">@ResumenResultados</span>
             </div>
+            <StatusBar Mensaje="@StatusMessage" Error="@StatusEsError" />
         </div>
 
         <div class="card">

@@ -83,6 +83,7 @@ namespace StockManufactura.Web.Infrastructure
             services.AddTransient<IPasswordRecoveryService, PasswordRecoveryService>();
 
             services.AddScoped<WebSession>();
+            services.AddScoped<DialogoPagina>();
             services.AddHostedService<AutomaticBackupService>();
             return services;
         }
