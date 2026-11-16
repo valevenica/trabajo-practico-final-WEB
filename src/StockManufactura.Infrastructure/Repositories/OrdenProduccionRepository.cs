@@ -32,8 +32,20 @@ namespace StockManufactura.Infrastructure.Repositories
 
         public override void Update(OrdenProduccion entity)
         {
+            // Al soltar la copia seguida de la orden (por ejemplo, la del alta en esta misma pantalla), EF suelta también
+            // los cambios de estado recién agregados que dependen de ella y no los guardaría: se vuelven a agregar.
+            var cambiosPendientes = _context.ChangeTracker.Entries<OrdenProduccionCambioEstado>()
+                .Where(x => x.State == EntityState.Added && x.Entity.OrdenProduccionId == entity.Id)
+                .Select(x => x.Entity)
+                .ToList();
+
             SoltarItemsSeguidos(entity.Id);
             base.Update(entity);
+
+            foreach (var cambio in cambiosPendientes.Where(c => _context.Entry(c).State == EntityState.Detached))
+            {
+                _context.Add(cambio);
+            }
         }
 
         public override void Delete(OrdenProduccion entity)
